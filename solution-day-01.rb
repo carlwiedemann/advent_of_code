@@ -1,4 +1,4 @@
--> {
+-> do
 
   input = File.readlines('./input-day-01.txt')
   depths = input.map(&:to_i)
@@ -15,6 +15,7 @@
     end
   end
 
+  # Part 1
   p increases(depths)
 
   sums = depths.each_with_index.reduce([]) do |memo, (depth, i)|
@@ -24,6 +25,7 @@
     memo
   end
 
+  # Part 2
   p increases(sums)
 
-}.call
+end.call
