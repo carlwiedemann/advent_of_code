@@ -276,8 +276,14 @@ sum = items.reduce do |memo, input|
   memo.plus(SnailFishNumber.from(input))
 end
 
-p sum.to_a
-p sum.magnitude
+pp sum.to_a
+# Part 1
+pp sum.magnitude
+
+items.length.times do |i|
+  pp i
+end
+
 
 
 
