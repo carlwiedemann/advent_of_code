@@ -28,6 +28,8 @@ class SnailFishNumber
   ARM_RIGHT = :arm_right
   ARM_LEFT = :arm_left
 
+
+  # @return [SnailFishNumber]
   def self.from(v)
     if v.class == SnailFishNumber
       # Already a node.
@@ -236,6 +238,7 @@ class SnailFishNumber
     followed_first_rule || followed_second_rule
   end
 
+  # @return [SnailFishNumber]
   def plus(b)
     c = SnailFishNumber.from([self, b])
     # Continue to reduce, if feasible.
@@ -280,10 +283,27 @@ pp sum.to_a
 # Part 1
 pp sum.magnitude
 
+max = -1
 items.length.times do |i|
-  pp i
+  items.length.times do |j|
+    sfn_i = SnailFishNumber.from(items[i])
+    sfn_ii = SnailFishNumber.from(items[i])
+    sfn_j = SnailFishNumber.from(items[j])
+    sfn_jj = SnailFishNumber.from(items[j])
+
+    sum1 = sfn_i.plus(sfn_j).magnitude
+    sum2 = sfn_jj.plus(sfn_ii).magnitude
+
+    if sum1 > max
+      max = sum1
+    end
+
+    if sum2 > max
+      max = sum2
+    end
+
+  end
 end
 
-
-
-
+# Part 2
+pp max
