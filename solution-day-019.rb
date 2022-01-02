@@ -656,4 +656,23 @@ loop do
   end
 end
 
+# Part 1
 pp cubes[0].all_connected_points.count
+
+def manhattan_distance(a, b)
+  (b[0] - a[0]).abs + (b[1] - a[1]).abs + (b[2] - a[2]).abs
+end
+
+# Part 2
+max_distance = -1
+cubes.each do |cube_i|
+  cubes.each do |cube_j|
+    distance = manhattan_distance(cube_i.affixed_transformation, cube_j.affixed_transformation)
+    if distance > max_distance
+      max_distance = distance
+    end
+  end
+end
+
+# Part 2
+pp max_distance
