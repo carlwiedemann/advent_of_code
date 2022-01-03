@@ -4,7 +4,7 @@ lines = INPUT.map(&:strip)
 algorithm_pieces = []
 
 def line_to_ints(line)
-  line.split(//).map { |i| i == '#' ? 1 : 0}
+  line.split(//).map { |i| i == '#' ? 1 : 0 }
 end
 
 loop do
@@ -15,12 +15,12 @@ end
 
 image_pieces = lines.map { line_to_ints(_1) }
 
-
 class ImageTwenty
 
   attr_reader :algorithm_tree
   attr_reader :iteration
   attr_reader :light_colored_square_count
+  attr_reader :image
 
   def initialize(algorithm_pieces, image_pieces)
     initialize_algorithm(algorithm_pieces)
@@ -74,14 +74,23 @@ class ImageTwenty
     @max_index = @image.length - 1
   end
 
-  def default_for_next(iteration)
-    @_cache_default_for_next ||= []
-    @default_value = @_cache_default_for_next[iteration] ||= get_next_value_from_grid(*Array.new(DIGIT_SIZE, @default_value))
+  def default_for_this_iteration(iteration)
+    if @_cache_default_for_this_iteration.nil?
+      @_cache_default_for_this_iteration = []
+      @_cache_default_for_this_iteration[iteration] = @default_value
+    elsif @_cache_default_for_this_iteration[iteration].nil?
+      value = get_next_value_from_grid(*Array.new(DIGIT_SIZE, @default_value))
+      @_cache_default_for_this_iteration[iteration] = value
+      # Set new default value
+      @default_value = value
+    end
+
+    @_cache_default_for_this_iteration[iteration]
   end
 
   def existing_value_at(x, y, iteration)
     if x < 0 || x > @max_index || y < 0 || y > @max_index
-      default_for_next(iteration)
+      default_for_this_iteration(iteration)
     else
       @image[y][x]
     end
@@ -149,15 +158,16 @@ class ImageTwenty
 
 end
 
-image = ImageTwenty.new(algorithm_pieces, image_pieces)
+candidate = ImageTwenty.new(algorithm_pieces, image_pieces)
 
-puts image.light_colored_square_count
+2.times do
+  candidate.enhance
+end
 
-image.enhance
+pp candidate.light_colored_square_count
 
-puts image.light_colored_square_count
+48.times do
+  candidate.enhance
+end
 
-image.enhance
-
-puts image.light_colored_square_count
-
+pp candidate.light_colored_square_count

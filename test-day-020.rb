@@ -27,34 +27,34 @@ test2 = lambda do
 
   image = ImageTwenty.new(base_arg, [])
 
-  assert(image.default_for_next(0), 0)
-  assert(image.default_for_next(1), 0)
-  assert(image.default_for_next(2), 0)
+  assert(image.default_for_this_iteration(0), 0)
+  assert(image.default_for_this_iteration(1), 0)
+  assert(image.default_for_this_iteration(2), 0)
 
   arg_a = base_arg.clone
   arg_a[0] = 1
   image = ImageTwenty.new(arg_a, [])
 
-  assert(image.default_for_next(0), 1)
-  assert(image.default_for_next(1), 0)
-  assert(image.default_for_next(2), 1)
+  assert(image.default_for_this_iteration(0), 0)
+  assert(image.default_for_this_iteration(1), 1)
+  assert(image.default_for_this_iteration(2), 0)
 
   arg_b = base_arg.clone
   arg_b[arg_b.count - 1] = 1
   image = ImageTwenty.new(arg_b, [])
 
-  assert(image.default_for_next(0), 0)
-  assert(image.default_for_next(1), 0)
-  assert(image.default_for_next(2), 0)
+  assert(image.default_for_this_iteration(0), 0)
+  assert(image.default_for_this_iteration(1), 0)
+  assert(image.default_for_this_iteration(2), 0)
 
   arg_c = base_arg.clone
   arg_c[0] = 1
   arg_c[arg_c.count - 1] = 1
   image = ImageTwenty.new(arg_c, [])
 
-  assert(image.default_for_next(0), 1)
-  assert(image.default_for_next(1), 1)
-  assert(image.default_for_next(2), 1)
+  assert(image.default_for_this_iteration(0), 0)
+  assert(image.default_for_this_iteration(1), 1)
+  assert(image.default_for_this_iteration(2), 1)
 
 end
 
