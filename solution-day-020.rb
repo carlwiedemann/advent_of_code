@@ -1,10 +1,26 @@
+INPUT = File.readlines('./input-day-020.txt')
 
+lines = INPUT.map(&:strip)
+algorithm_pieces = []
+
+def line_to_ints(line)
+  line.split(//).map { |i| i == '#' ? 1 : 0}
+end
+
+loop do
+  line = lines.shift
+  break if line.length == 0
+  algorithm_pieces += line_to_ints(line)
+end
+
+image_pieces = lines.map { line_to_ints(_1) }
 
 
 class ImageTwenty
 
   attr_reader :algorithm_tree
   attr_reader :iteration
+  attr_reader :light_colored_square_count
 
   def initialize(algorithm_pieces, image_pieces)
     initialize_algorithm(algorithm_pieces)
@@ -36,7 +52,8 @@ class ImageTwenty
   def initialize_image(image_pieces)
     @image = image_pieces
     # Initialize.
-    @light_colored_squares = count_grid(@image)
+    @light_colored_square_count = count_grid(@image)
+    @default_value = 0
   end
 
   def count_grid(grid)
@@ -58,11 +75,8 @@ class ImageTwenty
   end
 
   def default_for_next(iteration)
-    if iteration % 2 == 0
-      @_even_default ||= get_next_value_from_grid(0, 0, 0, 0, 0, 0, 0, 0, 0)
-    else
-      @_odd_default ||= get_next_value_from_grid(1, 1, 1, 1, 1, 1, 1, 1, 1)
-    end
+    @_cache_default_for_next ||= []
+    @default_value = @_cache_default_for_next[iteration] ||= get_next_value_from_grid(*Array.new(DIGIT_SIZE, @default_value))
   end
 
   def existing_value_at(x, y, iteration)
@@ -102,26 +116,48 @@ class ImageTwenty
 
   def enhance
     # We are going to create a new image. The new image will be (n + 2) x (n + 2)
-    new_max = get_max_index + 2
+    new_max = (get_max_index + 1) + 2
 
     new_image = Array.new(new_max)
 
-    @light_colored_squares = 0
+    @light_colored_square_count = 0
 
     new_max.times do |new_y|
       new_max.times do |new_x|
         # Initialize if necessary.
         new_image[new_y] ||= Array.new(new_max)
         next_value = next_value_at(new_x, new_y, @iteration)
-        @light_colored_squares += next_value
+        @light_colored_square_count += next_value
         new_image[new_y][new_x] = next_value
       end
     end
 
     @image = new_image
+    @max_index = new_image.length - 1
 
     @iteration += 1
+  end
 
+  def get_image_string
+    @image.reduce('') do |memo, row|
+      chars = row.map { |i| i == 1 ? '#' : '.' }
+      memo += chars.join('') + "\n"
+
+      memo
+    end
   end
 
 end
+
+image = ImageTwenty.new(algorithm_pieces, image_pieces)
+
+puts image.light_colored_square_count
+
+image.enhance
+
+puts image.light_colored_square_count
+
+image.enhance
+
+puts image.light_colored_square_count
+
