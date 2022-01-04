@@ -6,12 +6,14 @@ end
 
 class DieTwentyOne
   attr_reader :times_rolled
+  attr_reader :universes
 
   MAX_VALUE = 100
 
   def initialize(start = 0)
     @start = start
     @times_rolled = 0
+    @universes = 1
   end
 
   def roll_thrice
@@ -27,6 +29,7 @@ class DieTwentyOne
   end
 
   def next_value
+    @universes *= 3
     if @start == 100
       @start = 1
     else
@@ -40,7 +43,7 @@ class PlayerTwentyOne
 
   MAX_POSITION = 10
 
-  WINNING_SCORE = 1000
+  WINNING_SCORE = 21
 
   def initialize(position)
     @position = position
@@ -71,3 +74,8 @@ end
 
 # Part 1
 pp die.times_rolled * [p1.score, p2.score].min.to_i
+
+# Part 2
+pp die.universes
+# Winning needs to take the longest. Therefore we need to take
+# the slowest path to win
