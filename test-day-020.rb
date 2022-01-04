@@ -1,5 +1,11 @@
 require_relative 'solution-day-020'
 
+def assert(actual, expected)
+  if actual != expected
+    raise "expected #{expected}; received #{actual}"
+  end
+end
+
 test1 = lambda do
 
   image = ImageTwenty.new([1, 0, 1, 0, 1, 0, 1, 0, 15, 0], [])
@@ -13,12 +19,6 @@ test1 = lambda do
     raise "expected #{expected}"
   end
 
-end
-
-def assert(actual, expected)
-  if actual != expected
-    raise "expected #{expected}; received #{actual}"
-  end
 end
 
 test2 = lambda do
