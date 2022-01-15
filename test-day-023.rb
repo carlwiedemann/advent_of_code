@@ -174,18 +174,12 @@ test7 = lambda do
   assert(new_next_states[0].get_local_energy, 50)
 end
 
-# test1.call
-# test2.call
-# test3.call
-start = Time.now
-1000.times do
-  test4.call
-end
-pp sprintf('%.02f', ((Time.now - start) * 1000.0)) + ' ms'
-mem = GetProcessMem.new
-pp sprintf('%.02f', mem.mb) + ' MB'
-# test5.call
-# test6.call
-# test7.call
+test1.call
+test2.call
+test3.call
+test4.call
+test5.call
+test6.call
+test7.call
 
 pp '### TESTS OK ###'

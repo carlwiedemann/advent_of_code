@@ -13,7 +13,7 @@ bottom_raw = lines[3]
 tops = top_raw.gsub('#', '').split(//)
 bottoms = bottom_raw.gsub('#', '').split(//)
 
-initial_rooms = tops.zip(bottoms)
+raw_rooms = tops.zip(bottoms)
 
 ##
 # CaveStateTwentyThree class.
@@ -126,7 +126,7 @@ class CaveStateTwentyThree
   end
 
   def id
-    CaveStateTwentyThree.build_id(@hallway, @rooms)
+    @_id ||= CaveStateTwentyThree.build_id(@hallway, @rooms)
   end
 
   def self.rooms_from_string(rooms_string)
@@ -178,7 +178,7 @@ class CaveStateTwentyThree
   end
 
   def get_next_states
-    get_outward_next_states + get_inward_next_states
+    get_inward_next_states + get_outward_next_states
   end
 
   # @return [Array<CaveStateTwentyThree>]
@@ -393,22 +393,42 @@ end
 #
 class NavigatorTwentyThree
 
-  attr_accessor :denoted_and_unvisited
-
   def initialize
+
     @total_energies = Hash.new { INT_MAX }
+
     @parents = Hash.new { nil }
-    @denoted_and_unvisited = []
     @visited = Hash.new { false }
+
+    @energy_keyed_unvisited_states = {}
+
+  end
+
+  def total_energies_count
+    @total_energies.keys.count
   end
 
   # @return [CaveStateTwentyThree, nil]
   def get_next_unvisited
-    args = @denoted_and_unvisited.min do |a, b|
-      get_total_energy_by_id(a[0]) <=> get_total_energy_by_id(b[0])
+
+    # What is the minimum total energy we have stored?
+    minimum_total_energy = @energy_keyed_unvisited_states.keys.min
+
+    if minimum_total_energy.nil?
+      return nil
     end
 
-    @denoted_and_unvisited.delete(args)
+    minimum_total_energy_state_map = @energy_keyed_unvisited_states[minimum_total_energy]
+
+    # Of these states, pick one and remove.
+    key_to_pick = minimum_total_energy_state_map.keys.first
+    args = minimum_total_energy_state_map[key_to_pick]
+
+    minimum_total_energy_state_map.delete(key_to_pick)
+
+    if minimum_total_energy_state_map.empty?
+      @energy_keyed_unvisited_states.delete(minimum_total_energy)
+    end
 
     instance = CaveStateTwentyThree.from_id(args[0])
     instance.set_local_energy(args[1])
@@ -420,11 +440,37 @@ class NavigatorTwentyThree
     @visited[state.id]
   end
 
+  private def denote_unvisited(state, total_energy)
+    remove_unvisited(state)
+
+    state_map_at_new_energy = @energy_keyed_unvisited_states[total_energy]
+    if state_map_at_new_energy.nil?
+      state_map_at_new_energy = {}
+    end
+
+    state_map_at_new_energy[state.id] = [state.id, state.get_local_energy]
+    @energy_keyed_unvisited_states[total_energy] = state_map_at_new_energy
+  end
+
+  private def remove_unvisited(state)
+    # See if we have an existing energy that is unvisited, remove it.
+    existing_total_energy = @total_energies[state.id]
+    state_map_at_existing_energy = @energy_keyed_unvisited_states[existing_total_energy]
+    unless state_map_at_existing_energy.nil?
+      state_map_at_existing_energy.delete(state.id)
+      if state_map_at_existing_energy.empty?
+        @energy_keyed_unvisited_states.delete(existing_total_energy)
+      end
+    end
+  end
+
   # @param [CaveStateTwentyThree] state
   # @param [Integer] total_energy
   def denote_total_energy(state, total_energy)
+
+    denote_unvisited(state, total_energy)
+
     @total_energies[state.id] = total_energy
-    @denoted_and_unvisited.push([state.id, state.get_local_energy])
   end
 
   # @param [CaveStateTwentyThree] state
@@ -447,18 +493,43 @@ class NavigatorTwentyThree
   # @param [CaveStateTwentyThree] state
   def denote_visited(state)
     @visited[state.id] = true
+
+    remove_unvisited(state)
+  end
+
+  # @return [CaveStateTwentyThree, nil]
+  def get_parent(state)
+    CaveStateTwentyThree.from_id(@parents[state.id]) unless @parents[state.id].nil?
   end
 
 end
 
 # When we are finished, we are looking for this sort of identifier.
 final_state = CaveStateTwentyThree.from_id(CaveStateTwentyThree.build_id(CaveStateTwentyThree::EMPTY_HALLWAY, CaveStateTwentyThree::FINISHED_ROOMS))
-final_id = final_state.id
+
+# Map to potentially fixed values.
+initial_rooms = raw_rooms.map.with_index do |raw_room, room_index|
+  proper_occupant = CaveStateTwentyThree.proper_scud_for_room_index(room_index)
+
+  # Mold bottom half if matches
+  if proper_occupant == raw_room[CaveStateTwentyThree::HALF_INDEX_BACK]
+    new_room = CaveStateTwentyThree.array_copy_with_new_item_at_index(raw_room, proper_occupant.downcase, CaveStateTwentyThree::HALF_INDEX_BACK)
+    if proper_occupant == raw_room[CaveStateTwentyThree::HALF_INDEX_FRONT]
+      new_room = CaveStateTwentyThree.array_copy_with_new_item_at_index(new_room, proper_occupant.downcase, CaveStateTwentyThree::HALF_INDEX_BACK)
+    end
+  else
+    new_room = raw_room
+  end
+
+  new_room
+end
 
 root = CaveStateTwentyThree.from_id(CaveStateTwentyThree.build_id(CaveStateTwentyThree::EMPTY_HALLWAY, initial_rooms))
 
-finished = true
-return
+pp root.id
+pp '---'
+
+finished = false
 
 # @type [NavigatorTwentyThree]
 nav = NavigatorTwentyThree.new
@@ -469,23 +540,27 @@ nav.denote_total_energy(root, 0)
 i = 0
 
 mem = GetProcessMem.new
+base_mem = mem.mb
+start = Time.now
 
 until finished
   # @type [CaveStateTwentyThree]
   current_state = nav.get_next_unvisited
 
-  if i % 1000 == 0
-    pp mem.mb
-    pp nav.denoted_and_unvisited.count
-    pp current_state.id
-  end
+  # if i % 1000 == 0
+  #   pp '---'
+  #   pp "#{sprintf('%.02f', ((Time.now - start) * 1000.0))} ms"
+  #   pp "#{sprintf('%.02f', (mem.mb - base_mem))} MB"
+  # end
 
   # Are we out of states to visit? Or have we reached the ending state? Then we may exit.
-  if current_state.nil? || current_state.id == final_id
+  if current_state.nil?
     finished = true
   else
     # Only get states that we have not visited.
-    next_states_to_visit = current_state.get_next_states.reject { |next_state| nav.has_been_visited?(next_state) }
+    next_states_to_visit = current_state.get_next_states.reject do |next_state|
+      nav.has_been_visited?(next_state)
+    end
 
     next_states_to_visit.each do |next_state|
 
@@ -505,6 +580,23 @@ until finished
   i += 1
 end
 
-pp nav.get_total_energy(current_state)
+pp nav.get_total_energy(final_state)
+
+state = final_state
+
+steps = []
+
+loop do
+  steps.unshift(state.id)
+  parent = nav.get_parent(state)
+
+  if parent.nil?
+    break
+  else
+    state = parent
+  end
+end
+
+steps.each { pp _1 }
 
 
