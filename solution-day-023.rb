@@ -1,4 +1,3 @@
-require 'digest'
 require 'get_process_mem'
 
 INPUT = File.readlines('./input-day-023.txt')
@@ -13,7 +12,23 @@ bottom_raw = lines[3]
 tops = top_raw.gsub('#', '').split(//)
 bottoms = bottom_raw.gsub('#', '').split(//)
 
-raw_rooms = tops.zip(bottoms)
+raw_rooms1 = tops.zip(bottoms)
+
+# raw_rooms2 = [
+#   [raw_rooms1[0][0], 'D', raw_rooms1[0][1]],
+#   [raw_rooms1[1][0], 'C', raw_rooms1[1][1]],
+#   [raw_rooms1[2][0], 'B', raw_rooms1[2][1]],
+#   [raw_rooms1[3][0], 'A', raw_rooms1[3][1]],
+# ]
+
+raw_rooms2 = [
+  [raw_rooms1[0][0], 'D', 'D', raw_rooms1[0][1]],
+  [raw_rooms1[1][0], 'C', 'B', raw_rooms1[1][1]],
+  [raw_rooms1[2][0], 'B', 'A', raw_rooms1[2][1]],
+  [raw_rooms1[3][0], 'A', 'C', raw_rooms1[3][1]],
+]
+
+raw_rooms = raw_rooms2
 
 ##
 # CaveStateTwentyThree class.
@@ -22,20 +37,18 @@ raw_rooms = tops.zip(bottoms)
 #
 class CaveStateTwentyThree
 
-  @@fixed = []
+  SCUD_AMBER = 'A'
+  SCUD_BRONZE = 'B'
+  SCUD_COPPER = 'C'
+  SCUD_DESERT = 'D'
 
-  OCCUPANT_AMBER = 'A'
-  OCCUPANT_BRONZE = 'B'
-  OCCUPANT_COPPER = 'C'
-  OCCUPANT_DESERT = 'D'
-
-  OCCUPANT_EMPTY = '.'
+  SCUD_EMPTY = '.'
 
   SCUDS_TO_MOVE = [
-    OCCUPANT_AMBER,
-    OCCUPANT_BRONZE,
-    OCCUPANT_COPPER,
-    OCCUPANT_DESERT,
+    SCUD_AMBER,
+    SCUD_BRONZE,
+    SCUD_COPPER,
+    SCUD_DESERT,
   ]
 
   COST_AMBER = 1
@@ -50,10 +63,12 @@ class CaveStateTwentyThree
 
   ROOM_INDEX_RANGE = Range.new(ROOM_INDEX_AMBER, ROOM_INDEX_DESERT)
 
-  HALF_INDEX_FRONT = 0
-  HALF_INDEX_BACK = 1
+  SECTION_INDEX_FIRST = 0
+  SECTION_INDEX_SECOND = 1
+  SECTION_INDEX_THIRD = 2
+  SECTION_INDEX_FOURTH = 3
 
-  ROOM_HALF_INDEX_RANGE = Range.new(HALF_INDEX_FRONT, HALF_INDEX_BACK)
+  ROOM_COUNT = 4
 
   HALL_INDEX_LLL = 0
   HALL_INDEX_LL = 1
@@ -76,14 +91,7 @@ class CaveStateTwentyThree
 
   HALL_INDEX_RANGE = Range.new(HALL_INDEX_LLL, HALL_INDEX_RRR)
 
-  EMPTY_HALLWAY = Array.new(HALL_INDEX_RANGE.size, OCCUPANT_EMPTY)
-
-  FINISHED_ROOMS = [
-    Array.new(ROOM_HALF_INDEX_RANGE.size, CaveStateTwentyThree::OCCUPANT_AMBER.downcase),
-    Array.new(ROOM_HALF_INDEX_RANGE.size, CaveStateTwentyThree::OCCUPANT_BRONZE.downcase),
-    Array.new(ROOM_HALF_INDEX_RANGE.size, CaveStateTwentyThree::OCCUPANT_COPPER.downcase),
-    Array.new(ROOM_HALF_INDEX_RANGE.size, CaveStateTwentyThree::OCCUPANT_DESERT.downcase),
-  ]
+  EMPTY_HALLWAY = Array.new(HALL_INDEX_RANGE.size, SCUD_EMPTY)
 
   def initialize(rooms, hallway)
     @rooms = rooms
@@ -95,16 +103,20 @@ class CaveStateTwentyThree
     new(rooms_from_string(rooms_string), hallway_from_string(hallway_string))
   end
 
+  def self.as_fixed(scud)
+    scud.downcase
+  end
+
   def self.proper_scud_for_room_index(room_index)
     case room_index
     when ROOM_INDEX_AMBER
-      OCCUPANT_AMBER
+      SCUD_AMBER
     when ROOM_INDEX_BRONZE
-      OCCUPANT_BRONZE
+      SCUD_BRONZE
     when ROOM_INDEX_COPPER
-      OCCUPANT_COPPER
+      SCUD_COPPER
     when ROOM_INDEX_DESERT
-      OCCUPANT_DESERT
+      SCUD_DESERT
     else
       raise 'wat'
     end
@@ -112,13 +124,13 @@ class CaveStateTwentyThree
 
   def self.proper_room_index_for_scud(scud)
     case scud
-    when OCCUPANT_AMBER
+    when SCUD_AMBER
       ROOM_INDEX_AMBER
-    when OCCUPANT_BRONZE
+    when SCUD_BRONZE
       ROOM_INDEX_BRONZE
-    when OCCUPANT_COPPER
+    when SCUD_COPPER
       ROOM_INDEX_COPPER
-    when OCCUPANT_DESERT
+    when SCUD_DESERT
       ROOM_INDEX_DESERT
     else
       raise 'wat'
@@ -130,12 +142,13 @@ class CaveStateTwentyThree
   end
 
   def self.rooms_from_string(rooms_string)
-    [
-      [rooms_string[0], rooms_string[1]],
-      [rooms_string[2], rooms_string[3]],
-      [rooms_string[4], rooms_string[5]],
-      [rooms_string[6], rooms_string[7]],
-    ]
+    all_rooms = rooms_string.split(//)
+    depth = all_rooms.count / ROOM_COUNT
+    all_rooms.each_slice(depth).map(&:itself)
+  end
+
+  def room_depth
+    @rooms.first.count
   end
 
   def self.hallway_from_string(hallway_string)
@@ -164,13 +177,13 @@ class CaveStateTwentyThree
 
   def self.get_energy_rate_for_scud(scud)
     case scud
-    when OCCUPANT_AMBER
+    when SCUD_AMBER
       COST_AMBER
-    when OCCUPANT_BRONZE
+    when SCUD_BRONZE
       COST_BRONZE
-    when OCCUPANT_COPPER
+    when SCUD_COPPER
       COST_COPPER
-    when OCCUPANT_DESERT
+    when SCUD_DESERT
       COST_DESERT
     else
       raise 'wat'
@@ -181,24 +194,29 @@ class CaveStateTwentyThree
     get_inward_next_states + get_outward_next_states
   end
 
+  def room_section_index_range
+    @_room_section_index_range ||= Range.new(SECTION_INDEX_FIRST, room_depth - 1)
+  end
+
   # @return [Array<CaveStateTwentyThree>]
   def get_outward_next_states
     # Start with each room.
     # A given room position will be fixed if the color of the scud matches that of the room.
-    # We'll start with the leftmost room and move to the right. For each room we'll start with the front half.
+    # We'll start with the leftmost room and move to the right. For each room we'll start with the front and move toward
+    # the back.
     next_states = []
 
     ROOM_INDEX_RANGE.each do |room_index|
       current_hallway_index = CaveStateTwentyThree.room_index_to_hallway_index(room_index)
       available_hallway_indices = CaveStateTwentyThree.available_hallway_indices_from_room_index(@hallway, room_index)
-      ROOM_HALF_INDEX_RANGE.each do |half_index|
+      room_section_index_range.each do |section_index|
         # If the scud is settled, we can skip.
-        if scud_is_movable?(room_index, half_index)
+        if scud_is_movable?(room_index, section_index)
           # This scud should be able to travel to all available rooms.
           # For each room it travels to, we will have a new hallway.
-          new_rooms = CaveStateTwentyThree.rooms_with_scud_removed_at(@rooms, room_index, half_index)
+          new_rooms = CaveStateTwentyThree.rooms_with_scud_removed_at(@rooms, room_index, section_index)
 
-          scud_to_place = scud_at(room_index, half_index)
+          scud_to_place = scud_in_room(room_index, section_index)
           available_hallway_indices.each do |available_hallway_index|
 
             new_hallway = CaveStateTwentyThree.hallway_with_scud_placed_at(@hallway, scud_to_place, available_hallway_index)
@@ -206,7 +224,7 @@ class CaveStateTwentyThree
             next_state = CaveStateTwentyThree.new(new_rooms, new_hallway)
 
             # What was the energy required to reach this state?
-            number_of_steps = (available_hallway_index - current_hallway_index).abs + (1 + half_index)
+            number_of_steps = (available_hallway_index - current_hallway_index).abs + (1 + section_index)
             local_energy = CaveStateTwentyThree.get_energy_rate_for_scud(scud_to_place) * number_of_steps
 
             next_state.set_local_energy(local_energy)
@@ -222,46 +240,60 @@ class CaveStateTwentyThree
 
   def get_inward_next_states
     # Start with each hall index.
-    # Each occupant may *only* move to its matching slot, if available.
+    # Each scud may *only* move to its matching slot, if available.
     # Otherwise, there are no next states.
     next_states = []
 
     HALL_INDEX_RANGE.each do |hallway_index|
-      occupant = @hallway[hallway_index]
-      unless occupant == OCCUPANT_EMPTY
-        scud_to_place = occupant
-        # Where does this occupant want to go?
+      existing_scud = scud_in_hallway(hallway_index)
+      unless existing_scud == SCUD_EMPTY
+        scud_to_place = existing_scud
+        # Where does this scud want to go?
         desired_room_index = CaveStateTwentyThree.proper_room_index_for_scud(scud_to_place)
         available_room_indices = CaveStateTwentyThree.available_room_indices_from_hallway_index(@hallway, hallway_index)
 
         if available_room_indices.include?(desired_room_index)
-          # The occupant can only be placed in the back if both back and front is empty, or the front if the front is empty and
-          # the back is not empty.
-          expected_scud = CaveStateTwentyThree.proper_scud_for_room_index(desired_room_index)
-          front_scud = scud_at(desired_room_index, HALF_INDEX_FRONT)
-          back_scud = scud_at(desired_room_index, HALF_INDEX_BACK)
-          if front_scud == OCCUPANT_EMPTY && (back_scud == OCCUPANT_EMPTY || back_scud == expected_scud.downcase)
-            target_room_index = desired_room_index
-            if back_scud == OCCUPANT_EMPTY
-              target_half_index = HALF_INDEX_BACK
-            else
-              target_half_index = HALF_INDEX_FRONT
+          # The scud can only be placed in the room at the last empty section index.
+          target_room_index = desired_room_index
+
+          first_empty_section_index = room_section_index_range.reduce(nil) do |memo, possible_section_index|
+            if scud_in_room(desired_room_index, possible_section_index) == SCUD_EMPTY
+              memo = possible_section_index
             end
+            memo
+          end
+
+          if !first_empty_section_index.nil?
+            # We can only place this if the remaining scuds are fixed, otherwise, we can't.
+            can_place = (first_empty_section_index + 1).upto(room_section_index_range.max).reduce(true) do |memo, intermediate_section_index|
+              if memo
+                memo = !SCUDS_TO_MOVE.include?(scud_in_room(target_room_index, intermediate_section_index))
+              end
+
+              memo
+            end
+          else
+            can_place = false
+          end
+
+          if can_place
+            target_section_index = first_empty_section_index
             # Get new hallway
             new_hallway = CaveStateTwentyThree.hallway_with_scud_removed_at(@hallway, hallway_index)
             # Get new rooms, use lowercase to place scud.
-            new_rooms = CaveStateTwentyThree.rooms_with_scud_placed_at(@rooms, scud_to_place.downcase, target_room_index, target_half_index)
+            new_rooms = CaveStateTwentyThree.rooms_with_scud_placed_at(@rooms, CaveStateTwentyThree.as_fixed(scud_to_place), target_room_index, target_section_index)
 
             next_state = CaveStateTwentyThree.new(new_rooms, new_hallway)
 
             # What was the energy required to reach this state?
-            number_of_steps = (hallway_index - CaveStateTwentyThree.room_index_to_hallway_index(target_room_index)).abs + (1 + target_half_index)
+            number_of_steps = (hallway_index - CaveStateTwentyThree.room_index_to_hallway_index(target_room_index)).abs + (1 + target_section_index)
             local_energy = CaveStateTwentyThree.get_energy_rate_for_scud(scud_to_place) * number_of_steps
 
             next_state.set_local_energy(local_energy)
 
             next_states.push(next_state)
           end
+
         end
       end
     end
@@ -269,8 +301,8 @@ class CaveStateTwentyThree
     next_states
   end
 
-  def self.rooms_with_scud_removed_at(rooms, room_index_to_remove, half_index_to_remove)
-    rooms_with_scud_placed_at(rooms, OCCUPANT_EMPTY, room_index_to_remove, half_index_to_remove)
+  def self.rooms_with_scud_removed_at(rooms, room_index_to_remove, section_index_to_remove)
+    rooms_with_scud_placed_at(rooms, SCUD_EMPTY, room_index_to_remove, section_index_to_remove)
   end
 
   def self.array_copy_with_new_item_at_index(array, item, index)
@@ -280,16 +312,16 @@ class CaveStateTwentyThree
     new_array
   end
 
-  def self.rooms_with_scud_placed_at(rooms, new_occupant, room_index_to_place, half_index_to_place)
-    CaveStateTwentyThree.array_copy_with_new_item_at_index(rooms, CaveStateTwentyThree.array_copy_with_new_item_at_index(rooms[room_index_to_place], new_occupant, half_index_to_place), room_index_to_place)
+  def self.rooms_with_scud_placed_at(rooms, new_scud, room_index_to_place, section_index_to_place)
+    CaveStateTwentyThree.array_copy_with_new_item_at_index(rooms, CaveStateTwentyThree.array_copy_with_new_item_at_index(rooms[room_index_to_place], new_scud, section_index_to_place), room_index_to_place)
   end
 
   def self.hallway_with_scud_removed_at(hallway, hallway_index_to_remove)
-    hallway_with_scud_placed_at(hallway, OCCUPANT_EMPTY, hallway_index_to_remove)
+    hallway_with_scud_placed_at(hallway, SCUD_EMPTY, hallway_index_to_remove)
   end
 
-  def self.hallway_with_scud_placed_at(hallway, new_occupant, hallway_index_to_place)
-    CaveStateTwentyThree.array_copy_with_new_item_at_index(hallway, new_occupant, hallway_index_to_place)
+  def self.hallway_with_scud_placed_at(hallway, new_scud, hallway_index_to_place)
+    CaveStateTwentyThree.array_copy_with_new_item_at_index(hallway, new_scud, hallway_index_to_place)
   end
 
   def self.available_room_indices_from_hallway_index(hallway, hallway_index)
@@ -308,7 +340,7 @@ class CaveStateTwentyThree
 
     available_left = []
     left_indices.reverse_each do |left_index|
-      if hallway[left_index] == OCCUPANT_EMPTY
+      if hallway[left_index] == SCUD_EMPTY
         available_left.unshift(left_index)
       else
         break
@@ -317,7 +349,7 @@ class CaveStateTwentyThree
 
     available_right = []
     right_indices.each do |right_index|
-      if hallway[right_index] == OCCUPANT_EMPTY
+      if hallway[right_index] == SCUD_EMPTY
         available_right.push(right_index)
       else
         break
@@ -363,22 +395,33 @@ class CaveStateTwentyThree
     end
   end
 
-  def scud_at(room_index, half_index)
-    @rooms[room_index][half_index]
+  def scud_in_room(room_index, section_index)
+    @rooms[room_index][section_index]
   end
 
-  def scud_is_movable?(room_index, half_index)
-    existing_scud = scud_at(room_index, half_index)
+  def scud_in_hallway(hallway_index)
+    @hallway[hallway_index]
+  end
 
-    non_empty = existing_scud != OCCUPANT_EMPTY
+  def scud_is_movable?(room_index, section_index)
+    existing_scud = scud_in_room(room_index, section_index)
+    hall_index = CaveStateTwentyThree.room_index_to_hallway_index(room_index)
+    hall_index_left = hall_index - 1
+    hall_index_right = hall_index + 1
+
+    non_empty = existing_scud != SCUD_EMPTY
     not_fixed = SCUDS_TO_MOVE.include?(existing_scud)
 
-    if half_index == HALF_INDEX_FRONT
+    if section_index == SECTION_INDEX_FIRST
       not_trapped = true
-    elsif half_index == HALF_INDEX_BACK
-      not_trapped = scud_at(room_index, HALF_INDEX_FRONT) == OCCUPANT_EMPTY
     else
-      raise 'wat'
+      hall_clear = scud_in_hallway(hall_index_left) == SCUD_EMPTY || scud_in_hallway(hall_index_right) == SCUD_EMPTY
+
+      previous_sections_are_clear = Range.new(SECTION_INDEX_FIRST, section_index - 1).all? do |intermediate_section_index|
+        scud_in_room(room_index, intermediate_section_index) == SCUD_EMPTY
+      end
+
+      not_trapped = previous_sections_are_clear && hall_clear
     end
 
     non_empty && not_fixed && not_trapped
@@ -505,20 +548,37 @@ class NavigatorTwentyThree
 end
 
 # When we are finished, we are looking for this sort of identifier.
-final_state = CaveStateTwentyThree.from_id(CaveStateTwentyThree.build_id(CaveStateTwentyThree::EMPTY_HALLWAY, CaveStateTwentyThree::FINISHED_ROOMS))
+room_size = raw_rooms.first.count
+final_state = CaveStateTwentyThree.from_id(CaveStateTwentyThree.build_id(CaveStateTwentyThree::EMPTY_HALLWAY, [
+  Array.new(room_size, CaveStateTwentyThree::SCUD_AMBER.downcase),
+  Array.new(room_size, CaveStateTwentyThree::SCUD_BRONZE.downcase),
+  Array.new(room_size, CaveStateTwentyThree::SCUD_COPPER.downcase),
+  Array.new(room_size, CaveStateTwentyThree::SCUD_DESERT.downcase),
+]))
 
 # Map to potentially fixed values.
 initial_rooms = raw_rooms.map.with_index do |raw_room, room_index|
-  proper_occupant = CaveStateTwentyThree.proper_scud_for_room_index(room_index)
+  proper_scud = CaveStateTwentyThree.proper_scud_for_room_index(room_index)
 
-  # Mold bottom half if matches
-  if proper_occupant == raw_room[CaveStateTwentyThree::HALF_INDEX_BACK]
-    new_room = CaveStateTwentyThree.array_copy_with_new_item_at_index(raw_room, proper_occupant.downcase, CaveStateTwentyThree::HALF_INDEX_BACK)
-    if proper_occupant == raw_room[CaveStateTwentyThree::HALF_INDEX_FRONT]
-      new_room = CaveStateTwentyThree.array_copy_with_new_item_at_index(new_room, proper_occupant.downcase, CaveStateTwentyThree::HALF_INDEX_BACK)
+  # Fix bottom section if matches
+  preserve = false
+  new_room = []
+  room_size.times do |section_index|
+    reverse_index = room_size - section_index - 1
+    existing_scud = raw_room[reverse_index]
+
+    if preserve
+      target_scud = existing_scud
+    else
+      if existing_scud == proper_scud
+        target_scud = CaveStateTwentyThree.as_fixed(existing_scud)
+      else
+        target_scud = existing_scud
+        preserve = true
+      end
     end
-  else
-    new_room = raw_room
+
+    new_room[reverse_index] = target_scud
   end
 
   new_room
@@ -529,7 +589,7 @@ root = CaveStateTwentyThree.from_id(CaveStateTwentyThree.build_id(CaveStateTwent
 pp root.id
 pp '---'
 
-finished = false
+is_finished = false
 
 # @type [NavigatorTwentyThree]
 nav = NavigatorTwentyThree.new
@@ -543,19 +603,20 @@ mem = GetProcessMem.new
 base_mem = mem.mb
 start = Time.now
 
-until finished
+until is_finished
   # @type [CaveStateTwentyThree]
   current_state = nav.get_next_unvisited
 
-  # if i % 1000 == 0
+  # if i % 5000 == 0
   #   pp '---'
   #   pp "#{sprintf('%.02f', ((Time.now - start) * 1000.0))} ms"
   #   pp "#{sprintf('%.02f', (mem.mb - base_mem))} MB"
+  #   pp current_state.id
   # end
 
   # Are we out of states to visit? Or have we reached the ending state? Then we may exit.
-  if current_state.nil?
-    finished = true
+  if current_state.nil? || current_state.id == final_state.id
+    is_finished = true
   else
     # Only get states that we have not visited.
     next_states_to_visit = current_state.get_next_states.reject do |next_state|
@@ -598,5 +659,3 @@ loop do
 end
 
 steps.each { pp _1 }
-
-

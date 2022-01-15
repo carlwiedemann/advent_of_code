@@ -58,35 +58,35 @@ test1 = lambda do
 end
 
 test2 = lambda do
-  assert(CaveStateTwentyThree.proper_scud_for_room_index(CaveStateTwentyThree::ROOM_INDEX_AMBER), CaveStateTwentyThree::OCCUPANT_AMBER)
-  assert(CaveStateTwentyThree.proper_scud_for_room_index(CaveStateTwentyThree::ROOM_INDEX_BRONZE), CaveStateTwentyThree::OCCUPANT_BRONZE)
-  assert(CaveStateTwentyThree.proper_scud_for_room_index(CaveStateTwentyThree::ROOM_INDEX_COPPER), CaveStateTwentyThree::OCCUPANT_COPPER)
-  assert(CaveStateTwentyThree.proper_scud_for_room_index(CaveStateTwentyThree::ROOM_INDEX_DESERT), CaveStateTwentyThree::OCCUPANT_DESERT)
+  assert(CaveStateTwentyThree.proper_scud_for_room_index(CaveStateTwentyThree::ROOM_INDEX_AMBER), CaveStateTwentyThree::SCUD_AMBER)
+  assert(CaveStateTwentyThree.proper_scud_for_room_index(CaveStateTwentyThree::ROOM_INDEX_BRONZE), CaveStateTwentyThree::SCUD_BRONZE)
+  assert(CaveStateTwentyThree.proper_scud_for_room_index(CaveStateTwentyThree::ROOM_INDEX_COPPER), CaveStateTwentyThree::SCUD_COPPER)
+  assert(CaveStateTwentyThree.proper_scud_for_room_index(CaveStateTwentyThree::ROOM_INDEX_DESERT), CaveStateTwentyThree::SCUD_DESERT)
 end
 
 test3 = lambda do
-  assert(CaveStateTwentyThree.get_energy_rate_for_scud(CaveStateTwentyThree::OCCUPANT_AMBER), 1)
-  assert(CaveStateTwentyThree.get_energy_rate_for_scud(CaveStateTwentyThree::OCCUPANT_BRONZE), 10)
-  assert(CaveStateTwentyThree.get_energy_rate_for_scud(CaveStateTwentyThree::OCCUPANT_COPPER), 100)
-  assert(CaveStateTwentyThree.get_energy_rate_for_scud(CaveStateTwentyThree::OCCUPANT_DESERT), 1000)
+  assert(CaveStateTwentyThree.get_energy_rate_for_scud(CaveStateTwentyThree::SCUD_AMBER), 1)
+  assert(CaveStateTwentyThree.get_energy_rate_for_scud(CaveStateTwentyThree::SCUD_BRONZE), 10)
+  assert(CaveStateTwentyThree.get_energy_rate_for_scud(CaveStateTwentyThree::SCUD_COPPER), 100)
+  assert(CaveStateTwentyThree.get_energy_rate_for_scud(CaveStateTwentyThree::SCUD_DESERT), 1000)
 end
 
 test4 = lambda do
   rooms = CaveStateTwentyThree.rooms_from_string('AABBCCDD')
 
-  new_rooms = CaveStateTwentyThree.rooms_with_scud_placed_at(rooms, 'X', CaveStateTwentyThree::ROOM_INDEX_BRONZE, CaveStateTwentyThree::HALF_INDEX_FRONT)
+  new_rooms = CaveStateTwentyThree.rooms_with_scud_placed_at(rooms, 'X', CaveStateTwentyThree::ROOM_INDEX_BRONZE, 0)
   new_room_string = CaveStateTwentyThree.rooms_to_string(new_rooms)
   assert(new_room_string, 'AAXBCCDD')
 
-  new_rooms = CaveStateTwentyThree.rooms_with_scud_placed_at(rooms, 'X', CaveStateTwentyThree::ROOM_INDEX_COPPER, CaveStateTwentyThree::HALF_INDEX_BACK)
+  new_rooms = CaveStateTwentyThree.rooms_with_scud_placed_at(rooms, 'X', CaveStateTwentyThree::ROOM_INDEX_COPPER, 1)
   new_room_string = CaveStateTwentyThree.rooms_to_string(new_rooms)
   assert(new_room_string, 'AABBCXDD')
 
-  new_rooms = CaveStateTwentyThree.rooms_with_scud_removed_at(rooms, CaveStateTwentyThree::ROOM_INDEX_BRONZE, CaveStateTwentyThree::HALF_INDEX_FRONT)
+  new_rooms = CaveStateTwentyThree.rooms_with_scud_removed_at(rooms, CaveStateTwentyThree::ROOM_INDEX_BRONZE, 0)
   new_room_string = CaveStateTwentyThree.rooms_to_string(new_rooms)
   assert(new_room_string, 'AA.BCCDD')
 
-  new_rooms = CaveStateTwentyThree.rooms_with_scud_removed_at(rooms, CaveStateTwentyThree::ROOM_INDEX_COPPER, CaveStateTwentyThree::HALF_INDEX_BACK)
+  new_rooms = CaveStateTwentyThree.rooms_with_scud_removed_at(rooms, CaveStateTwentyThree::ROOM_INDEX_COPPER, 1)
   new_room_string = CaveStateTwentyThree.rooms_to_string(new_rooms)
   assert(new_room_string, 'AABBC.DD')
 
@@ -174,6 +174,32 @@ test7 = lambda do
   assert(new_next_states[0].get_local_energy, 50)
 end
 
+test8 = lambda do
+  s = CaveStateTwentyThree.from_id('...B...A.D.|.C.CBD.A')
+
+  assert(s.scud_is_movable?(CaveStateTwentyThree::ROOM_INDEX_AMBER, 0), false)
+  assert(s.scud_is_movable?(CaveStateTwentyThree::ROOM_INDEX_AMBER, 1), true)
+
+  assert(s.scud_is_movable?(CaveStateTwentyThree::ROOM_INDEX_COPPER, 0), true)
+  assert(s.scud_is_movable?(CaveStateTwentyThree::ROOM_INDEX_COPPER, 1), false)
+
+  assert(s.scud_is_movable?(CaveStateTwentyThree::ROOM_INDEX_DESERT, 0), false)
+  assert(s.scud_is_movable?(CaveStateTwentyThree::ROOM_INDEX_DESERT, 1), false)
+
+  s = CaveStateTwentyThree.from_id('...B...A.D.|.DDDCCCC.BBB.AAA')
+
+  assert(s.scud_is_movable?(CaveStateTwentyThree::ROOM_INDEX_AMBER, CaveStateTwentyThree::SECTION_INDEX_FIRST), false)
+  assert(s.scud_is_movable?(CaveStateTwentyThree::ROOM_INDEX_AMBER, CaveStateTwentyThree::SECTION_INDEX_SECOND), true)
+
+  assert(s.scud_is_movable?(CaveStateTwentyThree::ROOM_INDEX_BRONZE, CaveStateTwentyThree::SECTION_INDEX_FIRST), true)
+  assert(s.scud_is_movable?(CaveStateTwentyThree::ROOM_INDEX_BRONZE, CaveStateTwentyThree::SECTION_INDEX_SECOND), false)
+
+  assert(s.scud_is_movable?(CaveStateTwentyThree::ROOM_INDEX_DESERT, CaveStateTwentyThree::SECTION_INDEX_FIRST), false)
+  assert(s.scud_is_movable?(CaveStateTwentyThree::ROOM_INDEX_DESERT, CaveStateTwentyThree::SECTION_INDEX_SECOND), false)
+  assert(s.scud_is_movable?(CaveStateTwentyThree::ROOM_INDEX_DESERT, CaveStateTwentyThree::SECTION_INDEX_THIRD), false)
+  assert(s.scud_is_movable?(CaveStateTwentyThree::ROOM_INDEX_DESERT, CaveStateTwentyThree::SECTION_INDEX_FOURTH), false)
+end
+
 test1.call
 test2.call
 test3.call
@@ -181,5 +207,6 @@ test4.call
 test5.call
 test6.call
 test7.call
+test8.call
 
 pp '### TESTS OK ###'
