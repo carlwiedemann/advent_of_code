@@ -9,11 +9,11 @@ end
 
 # Part 1.
 count = pairs.reduce(0) do |memo, pair|
-  first = pair.first
-  last = pair.last
+  a = pair.first
+  b = pair.last
 
-  fully_contained = first.first >= last.first && first.last <= last.last ||
-    last.first >= first.first && last.last <= first.last
+  fully_contained = a.first >= b.first && a.last <= b.last ||
+    b.first >= a.first && b.last <= a.last
 
   memo + (fully_contained ? 1 : 0)
 end
@@ -22,14 +22,14 @@ pp count
 
 # Part 2.
 count = pairs.reduce(0) do |memo, pair|
-  first = pair.first
-  last = pair.last
+  a = pair.first
+  b = pair.last
 
-  fully_contained = first.first >= last.first && first.last <= last.last ||
-    last.first >= first.first && last.last <= first.last
+  fully_contained = a.first >= b.first && a.last <= b.last ||
+    b.first >= a.first && b.last <= a.last
 
-  overlaps = first.last >= last.first && first.first <= last.first ||
-    last.last >= first.first && last.first <= first.first
+  overlaps = a.last >= b.first && a.first <= b.first ||
+    b.last >= a.first && b.first <= a.first
 
   memo + (fully_contained || overlaps ? 1 : 0)
 end
