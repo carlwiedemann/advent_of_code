@@ -1,3 +1,5 @@
+require 'prime'
+
 INPUT = File.read('./input_day_011.txt')
 
 monkeys = INPUT.split(/\n\n/).map do |chunk|
@@ -21,6 +23,10 @@ considerations = Array.new(monkeys.count, 0)
     while current_monkey[:stack].count > 0
       considerations[i] += 1
       old = current_monkey[:stack].shift
+
+      old_as_primes = Prime.prime_divison(old)
+      pp old_as_primes
+      abort
       new = 0
 
       eval(current_monkey[:op].to_s)
