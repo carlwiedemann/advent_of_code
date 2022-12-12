@@ -24,14 +24,11 @@ considerations = Array.new(monkeys.count, 0)
       considerations[i] += 1
       old = current_monkey[:stack].shift
 
-      old_as_primes = Prime.prime_divison(old)
-      pp old_as_primes
-      abort
       new = 0
 
       eval(current_monkey[:op].to_s)
 
-      worry = new / 3
+      worry = new
 
       part = (worry % current_monkey[:div] == 0) ? :if_true : :if_false
 
