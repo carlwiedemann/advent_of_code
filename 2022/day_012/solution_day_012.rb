@@ -18,8 +18,6 @@ module Aoc2022Day12
       @parents = Hash.new { nil }
       @denoted_and_unvisited = []
       @visited = Hash.new { false }
-
-      denote_distance(starting_point, 0, nil)
     end
 
     def get_next_unvisited
@@ -48,22 +46,25 @@ module Aoc2022Day12
       @distances[point]
     end
 
-    def locate(letter)
-      @map.each_with_index do |row, y|
+    def self.points_for_letter(map, letter)
+      points = []
+      map.each_with_index do |row, y|
         row.each_with_index do |value, x|
           if value == letter
-            return [x, y]
+            points.push([x, y])
           end
         end
       end
+
+      points
     end
 
-    def starting_point
-      @_starting_point ||= locate(STARTING_LETTER)
+    def get_starting_point_part_1
+      @_starting_point ||= self.class.points_for_letter(@map, STARTING_LETTER).first
     end
 
     def ending_point
-      @_ending_point ||= locate(ENDING_LETTER)
+      @_ending_point ||= self.class.points_for_letter(@map, ENDING_LETTER).first
     end
 
     def reachable_neighbors(from_point)
@@ -71,10 +72,10 @@ module Aoc2022Day12
       y = from_point.last
 
       base_neighbors = [
-        point_or_nil([x,     y - 1]),
+        point_or_nil([x, y - 1]),
         point_or_nil([x - 1, y]),
         point_or_nil([x + 1, y]),
-        point_or_nil([x,     y + 1]),
+        point_or_nil([x, y + 1]),
       ]
 
       base_neighbors.compact.filter do |base_neighbor|
@@ -138,7 +139,9 @@ module Aoc2022Day12
       loop do
         parent = @parents[point]
 
-        break if parent == starting_point
+        return nil if parent.nil?
+
+        break if parent == @starting_point
 
         trail.unshift(parent)
         point = parent
@@ -147,34 +150,63 @@ module Aoc2022Day12
       trail
     end
 
+    def set_starting_point(starting_point)
+      @starting_point = starting_point
+      denote_distance(@starting_point, 0, nil)
+    end
+
   end
 end
 
-nav = Aoc2022Day12::Navigator.new(map)
+starting_letters = {
+  part_1: 'S',
+  part_2: 'a'
+}
 
-loop do
-  point = nav.get_next_unvisited
+starting_letters.each do |part, starting_letter|
 
-  break if point.nil?
+  starting_points = Aoc2022Day12::Navigator.points_for_letter(map, starting_letter)
 
-  unvisited_neighbors = nav.reachable_neighbors(point).reject do |neighbor|
-    nav.has_been_visited?(neighbor)
-  end
+  min_dist = 10000000
 
-  re_sort = false
-  unvisited_neighbors.each do |neighbor|
+  starting_points.each_with_index do |starting_point, i|
 
-    potential_distance = nav.get_distance(point) + 1
+    nav = Aoc2022Day12::Navigator.new(map)
+    nav.set_starting_point(starting_point)
 
-    if potential_distance < nav.get_distance(neighbor)
-      nav.denote_distance(neighbor, potential_distance, point)
-      re_sort = true
+    loop do
+      point = nav.get_next_unvisited
+
+      break if point.nil?
+
+      unvisited_neighbors = nav.reachable_neighbors(point).reject do |neighbor|
+        nav.has_been_visited?(neighbor)
+      end
+
+      re_sort = false
+      unvisited_neighbors.each do |neighbor|
+
+        potential_distance = nav.get_distance(point) + 1
+
+        if potential_distance < nav.get_distance(neighbor)
+          nav.denote_distance(neighbor, potential_distance, point)
+          re_sort = true
+        end
+      end
+
+      nav.re_sort_denoted if re_sort
+      nav.denote_visited(point)
+    end
+
+    trail = nav.get_trail
+    unless trail.nil?
+      dist = trail.count + 1
+      if dist < min_dist
+        min_dist = dist
+      end
     end
   end
 
-  nav.re_sort_denoted if re_sort
-  nav.denote_visited(point)
+  pp part
+  pp min_dist
 end
-
-# Part 1
-pp nav.get_trail.count + 1
