@@ -15,7 +15,9 @@ end.to_a
 
 considerations = Array.new(monkeys.count, 0)
 
-20.times do |j|
+div = monkeys.map { _1[:div] }.reduce(&:*)
+
+10000.times do |j|
   monkeys.each_index do |i|
 
     current_monkey = monkeys[i]
@@ -28,7 +30,7 @@ considerations = Array.new(monkeys.count, 0)
 
       eval(current_monkey[:op].to_s)
 
-      worry = new
+      worry = new % div
 
       part = (worry % current_monkey[:div] == 0) ? :if_true : :if_false
 
