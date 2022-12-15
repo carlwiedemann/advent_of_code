@@ -1,0 +1,22 @@
+#!/usr/bin/env ruby
+
+require 'fileutils'
+
+year = ARGV[0]
+day = ARGV[1]
+
+if year.nil?
+  raise 'Year required'
+end
+
+if day.nil?
+  raise 'Day required'
+end
+
+day_string = "day_#{sprintf('%03d', day)}"
+subdir = "./#{year}/#{day_string}"
+
+FileUtils.mkdir_p(subdir)
+FileUtils.touch("#{subdir}/input_#{day_string}.txt")
+FileUtils.touch("#{subdir}/solution_#{day_string}.rb")
+
