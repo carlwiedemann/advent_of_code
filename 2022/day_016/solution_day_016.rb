@@ -18,44 +18,97 @@ GRAPH = lines.reduce({}) do |memo, line|
   valve = parts[1].to_sym
   destination_names = parts[9..].map { _1.gsub(/[^a-z]/i, '').to_sym }
 
-  open_valve = "#{valve.to_s}_OPEN".to_sym
-  open_valve_destinations = [[valve, RATE_MAP[valve]]]
+  # open_valve = "#{valve.to_s}_OPEN".to_sym
+  # open_valve_destinations = [[valve, RATE_MAP[valve]]]
 
-  valve_destinations = destination_names.reduce([]) do |memo2, destination|
-    memo2.push([
-      "#{destination.to_s}_OPEN".to_sym,
-      0
-    ])
-    memo2.push([
-      destination,
-      0
-    ])
-
-    memo2
-  end
+  # valve_destinations = destination_names.reduce([]) do |memo2, destination|
+  #   memo2.push([
+  #     "#{destination.to_s}_OPEN".to_sym,
+  #     0
+  #   ])
+  #   memo2.push([
+  #     destination,
+  #     0
+  #   ])
+  #   memo2
+  # end
+  valve_destinations = destination_names
 
   memo[valve] = valve_destinations
-  memo[open_valve] = open_valve_destinations
+  # memo[open_valve] = open_valve_destinations
   memo
 end
+pp RATE_MAP
 pp GRAPH
 
 $debug = true
+
 def cout (*val)
   if $debug
     puts *val
   end
 end
 
-minutes = Aoc2022Day16::Navigator::MINUTES
-minutes = 5
-open_valves = []
-last_value = nil
-minutes.times do |i|
+module Aoc22d16
+  class Node
+    attr_reader :valve
+    attr_reader :opened
+
+    attr_accessor :children
+
+    def initialize(parent, valve, opened = false)
+      @parent = parent
+      @opened = opened
+      @valve = valve
+      @children = []
+    end
+
+    # @return [Aoc22d16::Node]
+    def self.append(parent, value, opened)
+      child = Node.new(parent, value, opened)
+      if parent.nil?
+        return child
+      end
+
+      parent.children.push(child)
+
+      parent
+    end
+  end
 
 end
 
-pp nav.get_total_flow
+IS_OPEN = 1
+IS_CLOSED = 0
+
+minutes = 5
+open_valves = []
+last_value = nil
+tree = Aoc22d16::Node.append(nil, :AA, IS_CLOSED)
+pp '--'
+
+cursor = :AA
+TOTAL = 30
+
+# max_flow = 0
+# def explore(cursor, flows, depth, _i = 0)
+#   # pp "#{('> ' * _i)}#{cursor}"
+#   if depth > 0
+#     child_valves = GRAPH[cursor]
+#     child_valves.each do |child_valve|
+#       remain = depth - 1
+#       explore(child_valve, flows, remain, _i + 1)
+#       explore(child_valve, flows + [RATE_MAP[child_valve] * remain], remain, _i + 1)
+#     end
+#   else
+#     pp flows
+#   end
+# end
+
+explore(:AA, [], 2)
 
 
-
+# Dijkstra from every point to get shortest paths
+# NxN on flow rates
+# Go through grid in-order, turning valves
+# measure each and take max
