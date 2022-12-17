@@ -18,24 +18,7 @@ GRAPH = lines.reduce({}) do |memo, line|
   valve = parts[1].to_sym
   destination_names = parts[9..].map { _1.gsub(/[^a-z]/i, '').to_sym }
 
-  # open_valve = "#{valve.to_s}_OPEN".to_sym
-  # open_valve_destinations = [[valve, RATE_MAP[valve]]]
-
-  # valve_destinations = destination_names.reduce([]) do |memo2, destination|
-  #   memo2.push([
-  #     "#{destination.to_s}_OPEN".to_sym,
-  #     0
-  #   ])
-  #   memo2.push([
-  #     destination,
-  #     0
-  #   ])
-  #   memo2
-  # end
-  valve_destinations = destination_names
-
-  memo[valve] = valve_destinations
-  # memo[open_valve] = open_valve_destinations
+  memo[valve] = destination_names
   memo
 end
 
@@ -47,7 +30,7 @@ SHOULD_OPEN = RATE_MAP.reduce([]) do |memo, (k, v)|
   memo.sort { |a, b| RATE_MAP[b] <=> RATE_MAP[a] }
 end
 
-$debug = true
+$debug = false
 
 def cout (*val)
   if $debug
@@ -66,15 +49,11 @@ def step_action(step)
 end
 
 def new_step_as_open(valve)
-  # self.new(ACTION_OPEN, valve)
-  # [ACTION_OPEN, valve]
   !@_new_as_open_cache.nil? || (@_new_as_open_cache = {})
   @_new_as_open_cache[valve] ||= "open_#{valve}".to_sym
 end
 
 def new_step_as_move(valve)
-  # self.new(ACTION_MOVE, valve)
-  # [ACTION_MOVE, valve]
   !@_new_as_move_cache.nil? || (@_new_as_move_cache = {})
   @_new_as_move_cache[valve] ||= "move_#{valve}".to_sym
 end
@@ -193,6 +172,11 @@ module Aoc22d16
       self.class.new(existing_steps.push(new_step))
     end
 
+    def new_with_steps(new_steps)
+      existing_steps = @steps.dup
+      self.class.new(existing_steps.concat(new_steps))
+    end
+
     def current_pressure
       pressure_after(@steps.count)
     end
@@ -212,9 +196,6 @@ module Aoc22d16
     def open_valves
       cache_key = "open_valves_#{@steps.count}"
       @_cache[cache_key] ||= @steps.reduce([]) do |memo, step|
-        # if step.opens?
-        #   memo.push(step.valve)
-        # end
         if step_action(step) == :open
           memo.push(step_valve(step))
         end
@@ -242,6 +223,7 @@ module Aoc22d16
   end
 
   class Explorer
+    attr_reader :chains
 
     # @param [Array<Chain>] chains
     def initialize(chains, limit)
@@ -257,12 +239,18 @@ module Aoc22d16
       # @type [Chain]
       max_chain = get_max_chain
 
-      @chains.filter! do |chain|
-        chain_max_possible_pressure_after = chain.max_possible_pressure_after(@limit)
-        current_pressure = max_chain.current_pressure
-        chain_max_possible_pressure_after >= current_pressure
+      possible_chains = @chains.filter do |chain|
+        # chain.max_possible_pressure_after(@limit) >= max_chain.current_pressure
+        chain.max_possible_pressure_after(@limit) >= max_chain.max_possible_pressure_after(@limit)
       end
 
+      if possible_chains.count > 0
+        @chains = possible_chains
+      else
+        pp @chains.count
+      end
+
+      # @chains.sort! { |a, b| a.max_possible_pressure_after(@limit) <=> b.max_possible_pressure_after(@limit) }
       @chains.sort! { |a, b| a.max_possible_pressure_after(@limit) <=> b.max_possible_pressure_after(@limit) }
 
       @chains.pop
@@ -272,10 +260,14 @@ module Aoc22d16
       @chains.max { |a, b| a.current_pressure <=> b.current_pressure }
     end
 
-    # @return [Integer]
-    def get_max_chain_pressure
-      get_max_chain.pressure_after(@limit)
+    def get_max_potential_chain
+      @chains.max { |a, b| a.max_possible_pressure_after(@limit) <=> b.max_possible_pressure_after(@limit) }
     end
+
+    # # @return [Integer]
+    # def get_max_chain_pressure
+    #   get_max_chain.pressure_after(@limit)
+    # end
 
     def push_chain(chain)
       @chains.push(chain)
@@ -356,34 +348,51 @@ explorer = Aoc22d16::Explorer.new([
 ], 30)
 
 i = 0
-# 500.times do |i|
 loop do
 
-  break if explorer.get_max_chain.done_opening?
+  max_chain = explorer.get_max_chain
+  max_potential_chain = explorer.get_max_potential_chain
+  if max_chain.steps.count >= 30 && max_chain == max_potential_chain
+    break
+  end
 
   candidate_chain = explorer.extract_candidate_chain
+  if i == 0
+    last_valve = :AA
+  else
+    if candidate_chain.nil?
+      pp i
+      pp explorer
+    end
+    last_valve = step_valve(candidate_chain.steps.last)
+  end
 
   # Paths to all remaining valves
-  candidate_chain.remaining_valves.each do |remaining_valve|
+  remaining_valves = candidate_chain.remaining_valves
 
-    path_to_remaining_valve = get_path(step_valve(candidate_chain.last), remaining_valve)
-    pp path_to_remaining_valve
-    abort
+  if remaining_valves.count > 0
+    remaining_valves.each do |remaining_valve|
+      path = get_path(last_valve, remaining_valve)
+      path_to_remaining_valve = path.map do |valve|
+        new_step_as_move(valve)
+      end
+      path_final = path_to_remaining_valve.push(new_step_as_open(path.last))
 
-
-    child_chain = candidate_chain.new_with_step(new_step_as_move(child_valve))
-    explorer.push_chain(child_chain)
-
-    if SHOULD_OPEN.include?(child_valve) && !child_chain.already_opened?(child_valve)
-      explorer.push_chain(child_chain.new_with_step(new_step_as_open(child_valve)))
+      child_chain = candidate_chain.new_with_steps(path_final)
+      explorer.push_chain(child_chain)
     end
+  else
+    child_chain = candidate_chain.new_with_steps([new_step_as_move(last_valve)])
+    explorer.push_chain(child_chain)
   end
 
   i += 1
 end
 
-# pp explorer.get_max_chain
-pp explorer.get_max_chain_pressure
+max_chain = explorer.get_max_chain
+# pp max_chain
+pp max_chain.pressure_after(30)
+# pp explorer.get_max_chain_pressure
 
 # pp '--'
 # pp RATE_MAP
