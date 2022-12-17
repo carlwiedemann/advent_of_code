@@ -189,8 +189,8 @@ module Aoc22d16
       open_valves.include?(valve)
     end
 
-    def remaining_valves
-      (SHOULD_OPEN - open_valves)
+    def remaining_valves(also_open_valves = [])
+      (SHOULD_OPEN - open_valves - also_open_valves)
     end
 
     def open_valves
@@ -266,41 +266,9 @@ module Aoc22d16
     end
 
   end
+
 end
 
-# chain0 = Aoc22d16::Chain.new([
-#   # Aoc22d16::Step.new(Aoc22d16::Step::ACTION_MOVE, :DD),
-#   # Aoc22d16::Step.new(Aoc22d16::Step::ACTION_OPEN, :DD),
-#   # Aoc22d16::Step.new(Aoc22d16::Step::ACTION_MOVE, :CC),
-#   # Aoc22d16::Step.new(Aoc22d16::Step::ACTION_MOVE, :BB),
-#   # Aoc22d16::Step.new(Aoc22d16::Step::ACTION_OPEN, :BB),
-#   # Aoc22d16::Step.new(Aoc22d16::Step::ACTION_MOVE_TO, :AA),
-#   # Aoc22d16::Step.new(Aoc22d16::Step::ACTION_MOVE_TO, :II),
-#   # Aoc22d16::Step.new(Aoc22d16::Step::ACTION_MOVE_TO, :JJ),
-#   # Aoc22d16::Step.new(Aoc22d16::Step::ACTION_OPEN, :JJ),
-#   # Aoc22d16::Step.new(Aoc22d16::Step::ACTION_MOVE_TO, :II),
-#   # Aoc22d16::Step.new(Aoc22d16::Step::ACTION_MOVE_TO, :AA),
-#   # Aoc22d16::Step.new(Aoc22d16::Step::ACTION_MOVE_TO, :DD),
-#   # Aoc22d16::Step.new(Aoc22d16::Step::ACTION_MOVE_TO, :EE),
-#   # Aoc22d16::Step.new(Aoc22d16::Step::ACTION_MOVE_TO, :FF),
-#   # Aoc22d16::Step.new(Aoc22d16::Step::ACTION_MOVE_TO, :GG),
-#   # Aoc22d16::Step.new(Aoc22d16::Step::ACTION_MOVE_TO, :HH),
-#   # Aoc22d16::Step.new(Aoc22d16::Step::ACTION_OPEN, :HH),
-#   # Aoc22d16::Step.new(Aoc22d16::Step::ACTION_MOVE_TO, :GG),
-#   # Aoc22d16::Step.new(Aoc22d16::Step::ACTION_MOVE_TO, :FF),
-#   # Aoc22d16::Step.new(Aoc22d16::Step::ACTION_MOVE_TO, :EE),
-#   # Aoc22d16::Step.new(Aoc22d16::Step::ACTION_OPEN, :EE),
-#   # Aoc22d16::Step.new(Aoc22d16::Step::ACTION_MOVE_TO, :DD),
-#   # Aoc22d16::Step.new(Aoc22d16::Step::ACTION_MOVE_TO, :CC),
-#   # Aoc22d16::Step.new(Aoc22d16::Step::ACTION_OPEN, :CC),
-# ])
-
-# pp chain0.pressure_after(30)
-# pp chain0.max_possible_pressure_after(30)
-# pp '--'
-# pp chain1.pressure_after(30)
-# pp chain1.max_possible_pressure_after(30)
-# pp '--'
 
 NAVS = GRAPH.keys.reduce({}) do |memo, start|
   nav = Aoc22d16::Navigator.new(GRAPH)
@@ -336,17 +304,18 @@ def get_path(from, to)
 end
 
 # Part 1
-LIMIT = 30
+LIMIT1 = 30
 explorer = Aoc22d16::Explorer.new([
   Aoc22d16::Chain.new([])
-], LIMIT)
+], LIMIT1)
 
 i = 0
 loop do
+  break
 
   max_chain = explorer.get_max_chain
   max_potential_chain = explorer.get_max_potential_chain
-  if max_chain.steps.count >= LIMIT && max_chain == max_potential_chain
+  if max_chain.steps.count >= LIMIT1 && max_chain == max_potential_chain
     break
   end
 
@@ -380,6 +349,105 @@ loop do
 end
 
 pp explorer.get_max_chain.pressure_after(30)
+
+# Part 1
+LIMIT2 = 30
+explorer1 = Aoc22d16::Explorer.new([
+  Aoc22d16::Chain.new([])
+], LIMIT2)
+explorer2 = Aoc22d16::Explorer.new([
+  Aoc22d16::Chain.new([])
+], LIMIT2)
+
+i = 0
+loop do
+
+  max_chain1 = explorer1.get_max_chain
+  max_chain2 = explorer2.get_max_chain
+  max_potential_chain1 = explorer1.get_max_potential_chain
+  max_potential_chain2 = explorer2.get_max_potential_chain
+  if max_chain1.steps.count >= LIMIT2 && max_chain2.steps.count >= LIMIT2
+    pp max_chain1.object_id
+    pp max_potential_chain1.object_id
+    pp max_chain2.object_id
+    pp max_potential_chain2.object_id
+    break
+  end
+
+  candidate_chain1 = explorer1.extract_candidate_chain
+  candidate_chain2 = explorer2.extract_candidate_chain
+  if i == 0
+    last_valve1 = :AA
+    last_valve2 = :AA
+  else
+    last_valve1 = step_valve(candidate_chain1.steps.last)
+    last_valve2 = step_valve(candidate_chain2.steps.last)
+  end
+
+  # Paths to all remaining valves
+  open_valves1 = candidate_chain1.open_valves
+  open_valves2 = candidate_chain2.open_valves
+  remaining_valves1 = candidate_chain1.remaining_valves(open_valves2)
+  remaining_valves2 = candidate_chain2.remaining_valves(open_valves1)
+
+  # Of all the remaining values, who is closer?
+  # Look at union of remaining spaces
+  # Do n^2 on union to get sets
+  if remaining_valves1.count > 0 || remaining_valves2.count > 0
+
+    unique1.each do |remaining_valve|
+      path = get_path(last_valve1, remaining_valve)
+      path_to_remaining_valve = path.map { |valve| new_step_as_move(valve) }
+      child_chain = candidate_chain1.new_with_steps(path_to_remaining_valve.push(new_step_as_open(path.last)))
+      explorer1.push_chain(child_chain)
+    end
+    unique2.each do |remaining_valve|
+      path = get_path(last_valve2, remaining_valve)
+      path_to_remaining_valve = path.map { |valve| new_step_as_move(valve) }
+      child_chain = candidate_chain2.new_with_steps(path_to_remaining_valve.push(new_step_as_open(path.last)))
+      explorer2.push_chain(child_chain)
+    end
+  else
+    if remaining_valves1.count == 0
+      explorer1.push_chain(candidate_chain1.new_with_steps([new_step_as_move(last_valve1)]))
+    end
+    if remaining_valves2.count == 0
+      explorer2.push_chain(candidate_chain2.new_with_steps([new_step_as_move(last_valve2)]))
+    end
+  end
+
+  i += 1
+end
+
+# 2247
+# 2735
+a = explorer1.get_max_chain.pressure_after(26)
+b = explorer2.get_max_chain.pressure_after(26)
+
+# given_steps1 = a.steps
+# given_steps2 = b.steps
+#
+# limit = 26
+# i = 0
+# unit = 0
+# total = 0
+# while i < limit
+#   total += unit
+#   step1 = given_steps1[i]
+#   step2 = given_steps2[i]
+#   if !step1.nil? && step_action(step1) == :open
+#     unit += RATE_MAP[step_valve(step1)]
+#   end
+#   if !step2.nil? && step_action(step2) == :open
+#     unit += RATE_MAP[step_valve(step2)]
+#   end
+#   i += 1
+# end
+#
+# pp total
+
+
+pp a + b
 
 
 
