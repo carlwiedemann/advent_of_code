@@ -64,11 +64,14 @@ module Aoc22d16
       unit = 0
       total = 0
       while i < limit
+        total += unit
         step = steps[i]
-        total = unit * (limit - i)
-        if step.opens?
-          unit += RATE_MAP[step.valve]
+        if !step.nil?
+          if step.opens?
+            unit += RATE_MAP[step.valve]
+          end
         end
+        i += 1
       end
 
       total
@@ -92,39 +95,38 @@ module Aoc22d16
       @action == ACTION_OPEN
     end
   end
-
-
-  chain = Chain.new([
-    Step.new(Step::ACTION_MOVE_TO, :DD),
-    Step.new(Step::ACTION_OPEN,    :DD),
-    Step.new(Step::ACTION_MOVE_TO, :CC),
-    Step.new(Step::ACTION_MOVE_TO, :BB),
-    Step.new(Step::ACTION_OPEN,    :BB),
-    Step.new(Step::ACTION_MOVE_TO, :AA),
-    Step.new(Step::ACTION_MOVE_TO, :II),
-    Step.new(Step::ACTION_MOVE_TO, :JJ),
-    Step.new(Step::ACTION_OPEN,    :JJ),
-    Step.new(Step::ACTION_MOVE_TO, :II),
-    Step.new(Step::ACTION_MOVE_TO, :AA),
-    Step.new(Step::ACTION_MOVE_TO, :DD),
-    Step.new(Step::ACTION_MOVE_TO, :EE),
-    Step.new(Step::ACTION_MOVE_TO, :FF),
-    Step.new(Step::ACTION_MOVE_TO, :GG),
-    Step.new(Step::ACTION_MOVE_TO, :HH),
-    Step.new(Step::ACTION_OPEN, :HH),
-    Step.new(Step::ACTION_MOVE_TO, :GG),
-    Step.new(Step::ACTION_MOVE_TO, :FF),
-    Step.new(Step::ACTION_MOVE_TO, :EE),
-    Step.new(Step::ACTION_OPEN, :EE),
-    Step.new(Step::ACTION_MOVE_TO, :DD),
-    Step.new(Step::ACTION_MOVE_TO, :CC),
-    Step.new(Step::ACTION_OPEN, :CC),
-  ])
-
-  pp chain.pressure_after(30)
-
-
-
 end
+
+chain = Aoc22d16::Chain.new([
+  Aoc22d16::Step.new(Aoc22d16::Step::ACTION_MOVE_TO, :DD),
+  Aoc22d16::Step.new(Aoc22d16::Step::ACTION_OPEN, :DD),
+  Aoc22d16::Step.new(Aoc22d16::Step::ACTION_MOVE_TO, :CC),
+  Aoc22d16::Step.new(Aoc22d16::Step::ACTION_MOVE_TO, :BB),
+  Aoc22d16::Step.new(Aoc22d16::Step::ACTION_OPEN, :BB),
+  Aoc22d16::Step.new(Aoc22d16::Step::ACTION_MOVE_TO, :AA),
+  Aoc22d16::Step.new(Aoc22d16::Step::ACTION_MOVE_TO, :II),
+  Aoc22d16::Step.new(Aoc22d16::Step::ACTION_MOVE_TO, :JJ),
+  Aoc22d16::Step.new(Aoc22d16::Step::ACTION_OPEN, :JJ),
+  Aoc22d16::Step.new(Aoc22d16::Step::ACTION_MOVE_TO, :II),
+  Aoc22d16::Step.new(Aoc22d16::Step::ACTION_MOVE_TO, :AA),
+  Aoc22d16::Step.new(Aoc22d16::Step::ACTION_MOVE_TO, :DD),
+  Aoc22d16::Step.new(Aoc22d16::Step::ACTION_MOVE_TO, :EE),
+  Aoc22d16::Step.new(Aoc22d16::Step::ACTION_MOVE_TO, :FF),
+  Aoc22d16::Step.new(Aoc22d16::Step::ACTION_MOVE_TO, :GG),
+  Aoc22d16::Step.new(Aoc22d16::Step::ACTION_MOVE_TO, :HH),
+  Aoc22d16::Step.new(Aoc22d16::Step::ACTION_OPEN, :HH),
+  Aoc22d16::Step.new(Aoc22d16::Step::ACTION_MOVE_TO, :GG),
+  Aoc22d16::Step.new(Aoc22d16::Step::ACTION_MOVE_TO, :FF),
+  Aoc22d16::Step.new(Aoc22d16::Step::ACTION_MOVE_TO, :EE),
+  Aoc22d16::Step.new(Aoc22d16::Step::ACTION_OPEN, :EE),
+  Aoc22d16::Step.new(Aoc22d16::Step::ACTION_MOVE_TO, :DD),
+  Aoc22d16::Step.new(Aoc22d16::Step::ACTION_MOVE_TO, :CC),
+  Aoc22d16::Step.new(Aoc22d16::Step::ACTION_OPEN, :CC),
+])
+
+pp chain.pressure_after(30)
+
+
+
 
 
