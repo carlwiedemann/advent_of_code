@@ -50,65 +50,81 @@ def cout (*val)
 end
 
 module Aoc22d16
-  class Node
-    attr_reader :valve
-    attr_reader :opened
+  class Chain
 
-    attr_accessor :children
+    # @return [Array<Step>]
+    attr_reader :steps
 
-    def initialize(parent, valve, opened = false)
-      @parent = parent
-      @opened = opened
-      @valve = valve
-      @children = []
+    def initialize(steps)
+      @steps = steps
     end
 
-    # @return [Aoc22d16::Node]
-    def self.append(parent, value, opened)
-      child = Node.new(parent, value, opened)
-      if parent.nil?
-        return child
+    def pressure_after(limit)
+      i = 0
+      unit = 0
+      total = 0
+      while i < limit
+        step = steps[i]
+        total = unit * (limit - i)
+        if step.opens?
+          unit += RATE_MAP[step.valve]
+        end
       end
 
-      parent.children.push(child)
+      total
+    end
 
-      parent
+  end
+
+  class Step
+    ACTION_MOVE_TO = :action_move_to
+    ACTION_OPEN = :action_open
+
+    attr_accessor :action
+    attr_accessor :valve
+
+    def initialize(action, valve)
+      @action = action
+      @valve = valve
+    end
+
+    def opens?
+      @action == ACTION_OPEN
     end
   end
 
+
+  chain = Chain.new([
+    Step.new(Step::ACTION_MOVE_TO, :DD),
+    Step.new(Step::ACTION_OPEN,    :DD),
+    Step.new(Step::ACTION_MOVE_TO, :CC),
+    Step.new(Step::ACTION_MOVE_TO, :BB),
+    Step.new(Step::ACTION_OPEN,    :BB),
+    Step.new(Step::ACTION_MOVE_TO, :AA),
+    Step.new(Step::ACTION_MOVE_TO, :II),
+    Step.new(Step::ACTION_MOVE_TO, :JJ),
+    Step.new(Step::ACTION_OPEN,    :JJ),
+    Step.new(Step::ACTION_MOVE_TO, :II),
+    Step.new(Step::ACTION_MOVE_TO, :AA),
+    Step.new(Step::ACTION_MOVE_TO, :DD),
+    Step.new(Step::ACTION_MOVE_TO, :EE),
+    Step.new(Step::ACTION_MOVE_TO, :FF),
+    Step.new(Step::ACTION_MOVE_TO, :GG),
+    Step.new(Step::ACTION_MOVE_TO, :HH),
+    Step.new(Step::ACTION_OPEN, :HH),
+    Step.new(Step::ACTION_MOVE_TO, :GG),
+    Step.new(Step::ACTION_MOVE_TO, :FF),
+    Step.new(Step::ACTION_MOVE_TO, :EE),
+    Step.new(Step::ACTION_OPEN, :EE),
+    Step.new(Step::ACTION_MOVE_TO, :DD),
+    Step.new(Step::ACTION_MOVE_TO, :CC),
+    Step.new(Step::ACTION_OPEN, :CC),
+  ])
+
+  pp chain.pressure_after(30)
+
+
+
 end
 
-IS_OPEN = 1
-IS_CLOSED = 0
 
-minutes = 5
-open_valves = []
-last_value = nil
-tree = Aoc22d16::Node.append(nil, :AA, IS_CLOSED)
-pp '--'
-
-cursor = :AA
-TOTAL = 30
-
-# max_flow = 0
-# def explore(cursor, flows, depth, _i = 0)
-#   # pp "#{('> ' * _i)}#{cursor}"
-#   if depth > 0
-#     child_valves = GRAPH[cursor]
-#     child_valves.each do |child_valve|
-#       remain = depth - 1
-#       explore(child_valve, flows, remain, _i + 1)
-#       explore(child_valve, flows + [RATE_MAP[child_valve] * remain], remain, _i + 1)
-#     end
-#   else
-#     pp flows
-#   end
-# end
-
-explore(:AA, [], 2)
-
-
-# Dijkstra from every point to get shortest paths
-# NxN on flow rates
-# Go through grid in-order, turning valves
-# measure each and take max
