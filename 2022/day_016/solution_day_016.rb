@@ -205,6 +205,10 @@ module Aoc22d16
       open_valves.include?(valve)
     end
 
+    def remaining_valves
+      (SHOULD_OPEN - open_valves)
+    end
+
     def open_valves
       cache_key = "open_valves_#{@steps.count}"
       @_cache[cache_key] ||= @steps.reduce([]) do |memo, step|
@@ -221,9 +225,9 @@ module Aoc22d16
     def max_possible_pressure_after(limit)
       cache_key = "max_possible_pressure_after_#{limit}_#{@steps.count}"
       if @_cache[cache_key].nil?
-        remaining_valves = (SHOULD_OPEN - open_valves).sort { |a, b| RATE_MAP[b] <=> RATE_MAP[a] }
+        remaining_valves_descending = remaining_valves.sort { |a, b| RATE_MAP[b] <=> RATE_MAP[a] }
 
-        possible_steps = remaining_valves.reduce([]) do |memo, remaining_valve|
+        possible_steps = remaining_valves_descending.reduce([]) do |memo, remaining_valve|
           memo.concat([
             new_step_as_move(remaining_valve),
             new_step_as_open(remaining_valve),
@@ -359,13 +363,14 @@ loop do
 
   candidate_chain = explorer.extract_candidate_chain
 
-  if i == 0
-    child_valves = GRAPH[:AA]
-  else
-    child_valves = GRAPH[step_valve(candidate_chain.steps.last)]
-  end
+  # Paths to all remaining valves
+  candidate_chain.remaining_valves.each do |remaining_valve|
 
-  child_valves.each do |child_valve|
+    path_to_remaining_valve = get_path(step_valve(candidate_chain.last), remaining_valve)
+    pp path_to_remaining_valve
+    abort
+
+
     child_chain = candidate_chain.new_with_step(new_step_as_move(child_valve))
     explorer.push_chain(child_chain)
 
