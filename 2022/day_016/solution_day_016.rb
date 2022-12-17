@@ -239,18 +239,10 @@ module Aoc22d16
       # @type [Chain]
       max_chain = get_max_chain
 
-      possible_chains = @chains.filter do |chain|
-        # chain.max_possible_pressure_after(@limit) >= max_chain.current_pressure
+      @chains.filter! do |chain|
         chain.max_possible_pressure_after(@limit) >= max_chain.max_possible_pressure_after(@limit)
       end
 
-      if possible_chains.count > 0
-        @chains = possible_chains
-      else
-        pp @chains.count
-      end
-
-      # @chains.sort! { |a, b| a.max_possible_pressure_after(@limit) <=> b.max_possible_pressure_after(@limit) }
       @chains.sort! { |a, b| a.max_possible_pressure_after(@limit) <=> b.max_possible_pressure_after(@limit) }
 
       @chains.pop
@@ -343,16 +335,18 @@ def get_path(from, to)
   NAVS[from].get_trail(to)
 end
 
+# Part 1
+LIMIT = 30
 explorer = Aoc22d16::Explorer.new([
   Aoc22d16::Chain.new([])
-], 30)
+], LIMIT)
 
 i = 0
 loop do
 
   max_chain = explorer.get_max_chain
   max_potential_chain = explorer.get_max_potential_chain
-  if max_chain.steps.count >= 30 && max_chain == max_potential_chain
+  if max_chain.steps.count >= LIMIT && max_chain == max_potential_chain
     break
   end
 
@@ -360,10 +354,6 @@ loop do
   if i == 0
     last_valve = :AA
   else
-    if candidate_chain.nil?
-      pp i
-      pp explorer
-    end
     last_valve = step_valve(candidate_chain.steps.last)
   end
 
@@ -389,14 +379,8 @@ loop do
   i += 1
 end
 
-max_chain = explorer.get_max_chain
-# pp max_chain
-pp max_chain.pressure_after(30)
-# pp explorer.get_max_chain_pressure
+pp explorer.get_max_chain.pressure_after(30)
 
-# pp '--'
-# pp RATE_MAP
-# pp SHOULD_OPEN
 
 
 
