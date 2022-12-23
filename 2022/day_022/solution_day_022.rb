@@ -1,14 +1,16 @@
 INPUT = File.readlines("#{File.dirname(__FILE__)}/input_day_022.txt")
 raw_lines = INPUT
 
-TURN_L = 'L'
-TURN_R = 'R'
+TURN_LEFT = 'L'
+TURN_RIGHT = 'R'
+TURN_NULL = 'S'
+TURN_REVERSE = 'V'
 
 steps = raw_lines.pop.strip.split(//).reduce([]) do |memo, char|
-  if char == TURN_L || char == TURN_R
+  if char == TURN_LEFT || char == TURN_RIGHT
     memo.push(char)
   else
-    if memo.length == 0 || memo.last == TURN_L || memo.last == TURN_R
+    if memo.length == 0 || memo.last == TURN_LEFT || memo.last == TURN_RIGHT
       memo.push(char)
     else
       memo.push("#{memo.pop}#{char}")
@@ -18,7 +20,7 @@ steps = raw_lines.pop.strip.split(//).reduce([]) do |memo, char|
 end
 
 steps.map! do |step|
-  if step == TURN_R || step == TURN_L
+  if step == TURN_RIGHT || step == TURN_LEFT
     step
   else
     step.to_i
@@ -76,10 +78,10 @@ class D22nav
   }
 
   TURNS = {
-    FACE_UP => { TURN_L => FACE_LEFT, TURN_R => FACE_RIGHT },
-    FACE_DOWN => { TURN_L => FACE_RIGHT, TURN_R => FACE_LEFT },
-    FACE_LEFT => { TURN_L => FACE_DOWN, TURN_R => FACE_UP },
-    FACE_RIGHT => { TURN_L => FACE_UP, TURN_R => FACE_DOWN },
+    FACE_UP => { TURN_LEFT => FACE_LEFT, TURN_RIGHT => FACE_RIGHT, TURN_NULL => FACE_UP, TURN_REVERSE => FACE_DOWN },
+    FACE_DOWN => { TURN_LEFT => FACE_RIGHT, TURN_RIGHT => FACE_LEFT, TURN_NULL => FACE_DOWN, TURN_REVERSE => FACE_UP },
+    FACE_LEFT => { TURN_LEFT => FACE_DOWN, TURN_RIGHT => FACE_UP, TURN_NULL => FACE_LEFT, TURN_REVERSE => FACE_RIGHT },
+    FACE_RIGHT => { TURN_LEFT => FACE_UP, TURN_RIGHT => FACE_DOWN, TURN_NULL => FACE_RIGHT, TURN_REVERSE => FACE_LEFT },
   }
 
   def get_next_position_and_direction(position, direction, part)
@@ -99,7 +101,7 @@ class D22nav
     if part == 1
       reconcile_position_and_direction_part_1(next_position, direction)
     else
-      reconcile_position_and_direction_part_2(next_position, direction)
+      reconcile_position_and_direction_part_2(position, next_position, direction)
     end
   end
 
@@ -172,8 +174,104 @@ class D22nav
     [position, direction]
   end
 
-  def reconcile_position_and_direction_part_2(position, direction)
-    reconcile_position_and_direction_part_1(position, direction)
+  # @param [Integer] x
+  # @param [Range] range_y
+  def get_points_y(x, range_y)
+    range_y.map do |y|
+      [x, y]
+    end
+  end
+
+  # @param [Integer] y
+  # @param [Range] range_x
+  def get_points_x(y, range_x)
+    range_x.map do |x|
+      [x, y]
+    end
+  end
+
+  def get_points_map(from, to)
+    Hash[from.zip(to)]
+  end
+
+  def reconcile_position_and_direction_part_2(last_position, next_position, last_direction)
+
+    size = 4
+
+    start_first = 1
+    end_first = size
+
+    start_second = end_first + 1
+    end_second = size * 2
+
+    start_third = end_second + 1
+    end_third = size * 3
+
+    start_fourth = end_third + 1
+    end_fourth = size * 4
+
+    range_first = start_first..end_first
+    range_second = start_second..end_second
+    range_third = start_third..end_third
+    range_fourth = start_fourth..end_fourth
+
+    sides = {
+      :top => [range_third, range_first],
+      :front => [range_third, range_second],
+      :back => [range_first, range_second],
+      :left => [range_second, range_second],
+      :right => [range_fourth, range_third],
+      :bottom => [range_third, range_third],
+    }
+
+    side_of_last_position = sides.reduce(nil) do |memo, (k, v)|
+      if memo.nil?
+        if v.first === last_position.first && v.last === last_position.last
+          memo = k
+        end
+      end
+
+      memo
+    end
+
+    top_up = get_points_map(get_points_x(start_first, range_third), get_points_x(start_second, range_first).reverse)
+    top_left = get_points_map(get_points_y(start_third, range_first), get_points_x(start_second, range_second))
+    top_right = get_points_map(get_points_y(end_third, range_first), get_points_y(end_fourth, range_third).reverse)
+    left_down = get_points_map(get_points_x(end_second, range_second), get_points_y(start_third, range_third).reverse)
+    back_left = get_points_map(get_points_y(start_first, range_second), get_points_x(end_third, range_fourth).reverse)
+    back_down = get_points_map(get_points_x(end_second, range_first), get_points_x(end_third, range_third).reverse)
+    front_right = get_points_map(get_points_y(end_third, range_second), get_points_x(start_third, range_fourth).reverse)
+
+    wormholes = {
+      [:top, FACE_RIGHT] => [top_right, FACE_LEFT],
+      [:top, FACE_UP] => [ top_up, FACE_DOWN],
+      [:top, FACE_LEFT] => [ top_left, FACE_DOWN],
+      [:back, FACE_UP] => [ top_up.invert, FACE_DOWN],
+      [:back, FACE_LEFT] => [ back_left, FACE_UP],
+      [:back, FACE_DOWN] => [ back_down, FACE_UP],
+      [:left, FACE_UP] => [ top_left.invert, FACE_RIGHT],
+      [:left, FACE_DOWN] => [ left_down, FACE_RIGHT],
+      [:front, FACE_RIGHT] => [ front_right, FACE_DOWN],
+      [:bottom, FACE_LEFT] => [ left_down.invert, FACE_UP],
+      [:bottom, FACE_DOWN] => [ back_down.invert, FACE_UP],
+      [:right, FACE_UP] => [ front_right.invert, FACE_LEFT],
+      [:right, FACE_RIGHT] => [ top_right.invert, FACE_LEFT],
+      [:right, FACE_DOWN] => [ back_left.invert, FACE_RIGHT],
+    }
+
+    wormhole = wormholes[[side_of_last_position, last_direction]]
+
+    next_direction = last_direction
+
+    unless wormhole.nil?
+      potential_next_position = wormhole[0][last_position]
+      unless potential_next_position.nil?
+        next_position = potential_next_position
+        next_direction = wormhole[1]
+      end
+    end
+
+    [next_position, next_direction]
   end
 
   def display_map
@@ -206,7 +304,7 @@ def get_score_for(map, steps, part)
     last_direction = nav.get_last_direction
     last_position = nav.get_last_position
 
-    is_turn = [TURN_L, TURN_R].include?(step)
+    is_turn = [TURN_LEFT, TURN_RIGHT].include?(step)
 
     if is_turn
       nav.denote_last_direction(step)
@@ -226,12 +324,13 @@ def get_score_for(map, steps, part)
     end
   end
 
+  print nav.display_map_with_trail
+
   nav.get_score
 end
 
 # print nav.display_map
 # print "\n"
-# print nav.display_map_with_trail
 # pp nav.get_last_position
 # pp nav.get_last_direction
 # pp get_score_for(map, 1)
