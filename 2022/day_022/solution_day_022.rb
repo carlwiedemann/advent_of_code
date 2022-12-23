@@ -63,6 +63,7 @@ class D22nav
     starting_direction = FACE_RIGHT
     starting_position = [@map[1].index(TILE_OPEN), 1]
     push_to_trail(starting_position, starting_direction)
+    prep_grid
   end
 
   FACE_UP = '^'
@@ -128,11 +129,24 @@ class D22nav
     @trail[get_last_trail_index][1]
   end
 
-  def denote_last_direction(turn)
+  def denote_last_direction(i, turn, part)
+    # if part == 1
     @trail[get_last_trail_index][1] = TURNS[get_last_direction][turn]
+    # else
+    #   # We should not use the last direction of the most recent step, it may be on a different panel.
+    #   last_position = get_last_position
+    #   # We know the face of the last position.
+    #   get_face_of_position(last_position)
+    #
+    #   # Ok, then the position should match what
+    #   last_direction = @wormholes[[]]
+    #
+    # end
   end
 
   def get_score
+    pp get_last_position
+    pp get_last_direction
     y = get_last_position.last
     x = get_last_position.first
     1000 * y + 4 * x + FACE_SCORE[get_last_direction]
@@ -194,9 +208,10 @@ class D22nav
     Hash[from.zip(to)]
   end
 
-  def reconcile_position_and_direction_part_2(last_position, next_position, last_direction)
-
-    size = 4
+  def prep_grid
+    # SAMPLE
+    # size = 4
+    size = 50
 
     start_first = 1
     end_first = size
@@ -215,51 +230,94 @@ class D22nav
     range_third = start_third..end_third
     range_fourth = start_fourth..end_fourth
 
-    sides = {
-      :top => [range_third, range_first],
-      :front => [range_third, range_second],
-      :back => [range_first, range_second],
-      :left => [range_second, range_second],
-      :right => [range_fourth, range_third],
-      :bottom => [range_third, range_third],
+    # SAMPLE
+    # sides = {
+    #   :top => [range_third, range_first],
+    #   :front => [range_third, range_second],
+    #   :back => [range_first, range_second],
+    #   :left => [range_second, range_second],
+    #   :right => [range_fourth, range_third],
+    #   :bottom => [range_third, range_third],
+    # }
+
+    @sides = {
+      :top => [range_second, range_first],
+      :front => [range_second, range_second],
+      :back => [range_first, range_fourth],
+      :left => [range_first, range_third],
+      :right => [range_third, range_first],
+      :bottom => [range_second, range_third],
     }
 
-    side_of_last_position = sides.reduce(nil) do |memo, (k, v)|
+    # SAMPLE
+    # top_up = get_points_map(get_points_x(start_first, range_third), get_points_x(start_second, range_first).reverse)
+    # top_left = get_points_map(get_points_y(start_third, range_first), get_points_x(start_second, range_second))
+    # top_right = get_points_map(get_points_y(end_third, range_first), get_points_y(end_fourth, range_third).reverse)
+    # left_down = get_points_map(get_points_x(end_second, range_second), get_points_y(start_third, range_third).reverse)
+    # back_left = get_points_map(get_points_y(start_first, range_second), get_points_x(end_third, range_fourth).reverse)
+    # back_down = get_points_map(get_points_x(end_second, range_first), get_points_x(end_third, range_third).reverse)
+    # front_right = get_points_map(get_points_y(end_third, range_second), get_points_x(start_third, range_fourth).reverse)
+
+    # SAMPLE
+    # wormholes = {
+    #   [:top, FACE_RIGHT] => [top_right, FACE_LEFT],
+    #   [:top, FACE_UP] => [ top_up, FACE_DOWN],
+    #   [:top, FACE_LEFT] => [ top_left, FACE_DOWN],
+    #   [:back, FACE_UP] => [ top_up.invert, FACE_DOWN],
+    #   [:back, FACE_LEFT] => [ back_left, FACE_UP],
+    #   [:back, FACE_DOWN] => [ back_down, FACE_UP],
+    #   [:left, FACE_UP] => [ top_left.invert, FACE_RIGHT],
+    #   [:left, FACE_DOWN] => [ left_down, FACE_RIGHT],
+    #   [:front, FACE_RIGHT] => [ front_right, FACE_DOWN],
+    #   [:bottom, FACE_LEFT] => [ left_down.invert, FACE_UP],
+    #   [:bottom, FACE_DOWN] => [ back_down.invert, FACE_UP],
+    #   [:right, FACE_UP] => [ front_right.invert, FACE_LEFT],
+    #   [:right, FACE_RIGHT] => [ top_right.invert, FACE_LEFT],
+    #   [:right, FACE_DOWN] => [ back_left.invert, FACE_RIGHT],
+    # }
+
+    top_up = get_points_map(get_points_x(start_first, range_second), get_points_y(start_first, range_fourth))
+    top_left = get_points_map(get_points_y(start_second, range_first), get_points_y(start_first, range_third).reverse)
+
+    right_up = get_points_map(get_points_x(start_first, range_third), get_points_x(end_fourth, range_first))
+    right_right = get_points_map(get_points_y(end_third, range_first), get_points_y(end_second, range_third).reverse)
+    right_down = get_points_map(get_points_x(end_first, range_third), get_points_y(end_second, range_second))
+
+    front_left = get_points_map(get_points_y(start_second, range_second), get_points_x(start_third, range_first))
+    bottom_down = get_points_map(get_points_x(end_third, range_second), get_points_y(end_first, range_fourth))
+    @wormholes = {
+      [:top, FACE_UP] => [top_up, FACE_RIGHT],
+      [:top, FACE_LEFT] => [top_left, FACE_RIGHT],
+      [:right, FACE_UP] => [right_up, FACE_UP],
+      [:right, FACE_RIGHT] => [right_right, FACE_LEFT],
+      [:right, FACE_DOWN] => [right_down, FACE_LEFT],
+      [:front, FACE_LEFT] => [front_left, FACE_DOWN],
+      [:front, FACE_RIGHT] => [right_down.invert, FACE_UP],
+      [:left, FACE_UP] => [front_left.invert, FACE_RIGHT],
+      [:left, FACE_LEFT] => [top_left.invert, FACE_RIGHT],
+      [:bottom, FACE_RIGHT] => [right_right.invert, FACE_LEFT],
+      [:bottom, FACE_DOWN] => [bottom_down, FACE_LEFT],
+      [:back, FACE_LEFT] => [top_up.invert, FACE_DOWN],
+      [:back, FACE_DOWN] => [right_up.invert, FACE_DOWN],
+      [:back, FACE_RIGHT] => [bottom_down.invert, FACE_UP],
+    }
+  end
+
+  def get_face_of_position(position)
+    @sides.reduce(nil) do |memo, (k, v)|
       if memo.nil?
-        if v.first === last_position.first && v.last === last_position.last
+        if v.first === position.first && v.last === position.last
           memo = k
         end
       end
 
       memo
     end
+  end
 
-    top_up = get_points_map(get_points_x(start_first, range_third), get_points_x(start_second, range_first).reverse)
-    top_left = get_points_map(get_points_y(start_third, range_first), get_points_x(start_second, range_second))
-    top_right = get_points_map(get_points_y(end_third, range_first), get_points_y(end_fourth, range_third).reverse)
-    left_down = get_points_map(get_points_x(end_second, range_second), get_points_y(start_third, range_third).reverse)
-    back_left = get_points_map(get_points_y(start_first, range_second), get_points_x(end_third, range_fourth).reverse)
-    back_down = get_points_map(get_points_x(end_second, range_first), get_points_x(end_third, range_third).reverse)
-    front_right = get_points_map(get_points_y(end_third, range_second), get_points_x(start_third, range_fourth).reverse)
+  def reconcile_position_and_direction_part_2(last_position, next_position, last_direction)
 
-    wormholes = {
-      [:top, FACE_RIGHT] => [top_right, FACE_LEFT],
-      [:top, FACE_UP] => [ top_up, FACE_DOWN],
-      [:top, FACE_LEFT] => [ top_left, FACE_DOWN],
-      [:back, FACE_UP] => [ top_up.invert, FACE_DOWN],
-      [:back, FACE_LEFT] => [ back_left, FACE_UP],
-      [:back, FACE_DOWN] => [ back_down, FACE_UP],
-      [:left, FACE_UP] => [ top_left.invert, FACE_RIGHT],
-      [:left, FACE_DOWN] => [ left_down, FACE_RIGHT],
-      [:front, FACE_RIGHT] => [ front_right, FACE_DOWN],
-      [:bottom, FACE_LEFT] => [ left_down.invert, FACE_UP],
-      [:bottom, FACE_DOWN] => [ back_down.invert, FACE_UP],
-      [:right, FACE_UP] => [ front_right.invert, FACE_LEFT],
-      [:right, FACE_RIGHT] => [ top_right.invert, FACE_LEFT],
-      [:right, FACE_DOWN] => [ back_left.invert, FACE_RIGHT],
-    }
-
-    wormhole = wormholes[[side_of_last_position, last_direction]]
+    wormhole = @wormholes[[get_face_of_position(last_position), last_direction]]
 
     next_direction = last_direction
 
@@ -277,6 +335,30 @@ class D22nav
   def display_map
     display_points(@map)
   end
+
+  # def display_edges
+  #   edge_string = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+  #   @wormholes.values.each do |(edge_map, _)|
+  #     base_points = dup_map
+  #     edge_map.each_with_index do |(point_from, point_to), i|
+  #       esi = i % edge_string.length
+  #       base_points[point_from.last][point_from.first] = edge_string[esi]
+  #       base_points[point_to.last][point_to.first] = edge_string[esi]
+  #     end
+  #     print display_points(base_points)
+  #     print "\n"
+  #   end
+  # end
+
+  # def dup_map
+  #   @map.map do |row|
+  #     new_row = row.dup
+  #     new_row.map do |value|
+  #       new_value = value.dup
+  #       new_value
+  #     end
+  #   end
+  # end
 
   def display_map_with_trail
     base_points = @map.dup
@@ -298,16 +380,18 @@ class D22nav
   end
 end
 
-def get_score_for(map, steps, part)
-  nav = D22nav.new(map)
-  steps.each do |step|
+def get_score_for(nav, steps, part)
+  buffer = ''
+  steps.each_with_index do |step, i|
+    pp i
     last_direction = nav.get_last_direction
     last_position = nav.get_last_position
 
     is_turn = [TURN_LEFT, TURN_RIGHT].include?(step)
 
     if is_turn
-      nav.denote_last_direction(step)
+      buffer += step.to_s
+      nav.denote_last_direction(i, step, part)
     else
       step.times do
         (potential_position, potential_direction) = nav.get_next_position_and_direction(last_position, last_direction, part)
@@ -315,16 +399,20 @@ def get_score_for(map, steps, part)
 
         break if value == TILE_WALL
 
-        if value == TILE_OPEN
-          nav.push_to_trail(potential_position, last_direction)
+        # if value == TILE_OPEN
+          nav.push_to_trail(potential_position, potential_direction)
           last_position = potential_position
           last_direction = potential_direction
-        end
+        # end
       end
+      buffer += step.to_s
+      # dump to file
+      # string = sprintf('%04d', i)
+      # output = buffer + "\n\n" + nav.display_map_with_trail
+      # File.write("#{File.dirname(__FILE__)}/out/#{string}.txt", output)
+      buffer = ''
     end
   end
-
-  print nav.display_map_with_trail
 
   nav.get_score
 end
@@ -334,4 +422,10 @@ end
 # pp nav.get_last_position
 # pp nav.get_last_direction
 # pp get_score_for(map, 1)
-pp get_score_for(map, steps, 2)
+#
+# nav = D22nav.new(map)
+# pp get_score_for(nav, steps, 1)
+
+nav = D22nav.new(map)
+pp get_score_for(nav, steps, 2)
+
