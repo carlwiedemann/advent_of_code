@@ -11,6 +11,7 @@ class BlueprintNode
   attr_reader :raw_blueprint
   attr_reader :staff
   attr_accessor :children
+  attr_accessor :did_skip
 
   # @return [BlueprintNode]
   attr_accessor :parent
@@ -55,6 +56,10 @@ class BlueprintNode
     @staff.each_with_index do |count, i|
       @available_resources[i] += count
     end
+  end
+
+  def get_robot_count
+    @staff.reduce(&:+)
   end
 
   def get_geode_robot_count
@@ -206,7 +211,10 @@ end
 
 MINUTES = 24
 child_count = 0
-MASTER_BLUEPRINTS.each do |master_blueprint|
+
+qualities = []
+
+MASTER_BLUEPRINTS.each_with_index do |master_blueprint, blueprint_index|
 
   pp 'Building schedule...'
   schedule = BlueprintSchedule.new(master_blueprint)
@@ -235,80 +243,118 @@ MASTER_BLUEPRINTS.each do |master_blueprint|
     blueprint = data[0]
     depth = data[1]
 
-    if j % 100_000 == 0
+    break if depth > 23
+
+    if j % 500_000 == 0
       pp '--'
       pp j
-      pp "child_count      #{child_count}"
-      pp "max_geode_robots #{max_geode_robots}"
+      # pp "child_count      #{child_count}"
+      # pp "max_geode_robots #{max_geode_robots}"
       pp "depth            #{depth}"
       pp "length           #{queue.length}"
     end
 
-    break if depth > 23
+    # What types can we build?
+    types_we_can_build = schedule.types_for_resources(blueprint.available_resources)
 
-    # It doesn't make sense to acquire resources in excess of 2x the first two robots and not build anything,
-    # we should skip these.
-    # next if blueprint.get_max_resource_count >= max_resource_accrual
+    must_build = false
+    # IDEA 1: Always build the first 2 robots you can afford.
+    if types_we_can_build.count > 0 && blueprint.get_robot_count < 2
+      # This represents that we have the resources to build at least 1.
+      must_build = true
+    end
 
-    if depth > 21 && blueprint.get_geode_count < 1
+    # IDEA 2: If we don't have any geode robots by step 19, quit.
+    if depth > 19 && blueprint.get_geode_robot_count < 1
       next
     end
 
-    # if blueprint.get_geode_count > 1
-    #   # It doesn't make sense to provision children if we won't be able to build any more geode bots.
-    #   depth_remaining = 23 - depth - 1
-    #   resources_at_remaining_depth = staff.map
-    # end
-
-    if blueprint.get_geode_count > max_geode_blueprint.get_geode_count
-      max_geode_blueprint = blueprint
+    # IDEA 3: Only ever build the most recent two robots
+    if types_we_can_build.count > 1
+      types_we_can_build = types_we_can_build.last(2)
     end
 
-    if blueprint.get_geode_robot_count > max_geode_robots
-      max_geode_robots = blueprint.get_geode_robot_count
+    # IDEA 4: Do not let the difference between the minimum robot count and the maximum robot count be greater than 5
+    if types_we_can_build.count > 1
+      min_count = blueprint.staff.min
+      max_count = min_count + 5
+      max_count = 5
+      types_at_max = []
+      blueprint.staff.each_with_index do |count, type|
+        if count >= max_count
+          types_at_max.push(type)
+        end
+      end
+      types_we_can_build = types_we_can_build - types_at_max
     end
 
-    # What types can we build?
-    types_we_can_build = schedule.types_for_resources(blueprint.available_resources)
+    # IDEA 5: do not skip for more than 4 times in a row
+    if blueprint.did_skip
+      skip_count = 1
+      # How many parents skipped?
+      target = blueprint.parent
+      loop do
+        break unless target.did_skip
+        skip_count += 1
+        target = target.parent
+      end
+
+      if skip_count > 3
+        next
+      end
+    end
+
+    # IDEA 6: Only skip if we cannot build any more geode robots in the time remaining.
+    # Based on obsidian cost, since it is the most expensive.
+
     types_we_can_build.each do |possible_type|
       child = BlueprintNode.new(blueprint.raw_blueprint, blueprint.staff.dup, blueprint.available_resources.dup)
       child.bump_resources
       child.push_robot(possible_type)
-      # unless child.get_geode_robot_count < max_geode_robots / 2
-        child_count += 1
-        child.parent = blueprint
-        blueprint.children.push(child)
-        queue.push([child, depth + 1])
-      # end
+      child_count += 1
+      child.parent = blueprint
+      child.did_skip = false
+      blueprint.children.push(child)
+      queue.push([child, depth + 1])
     end
-    # We can also choose to do nothing.
-    # But only do this:
-    # - If We can't build anything
-    # We should also do this if the number of things that are able to be built is less than 2 and we don't have all robots yet.
-    cant_build_anything = types_we_can_build.length == 0
-    dont_have_all_robots = blueprint.staff.any?(0)
-    if cant_build_anything || types_we_can_build.length < 2 && dont_have_all_robots
+
+    unless must_build
       child = BlueprintNode.new(blueprint.raw_blueprint, blueprint.staff.dup, blueprint.available_resources.dup)
       child.bump_resources
-      # unless child.get_geode_robot_count < max_geode_robots / 2
-        child_count += 1
-        child.parent = blueprint
-        blueprint.children.push(child)
-        queue.push([child, depth + 1])
-      # end
+      child_count += 1
+      child.parent = blueprint
+      child.did_skip = true
+      blueprint.children.push(child)
+      queue.push([child, depth + 1])
+    end
+
+    blueprint.children.each do |child|
+      # Track stats.
+      if child.get_geode_count > max_geode_blueprint.get_geode_count
+        max_geode_blueprint = child
+      end
+
+      if child.get_geode_robot_count > max_geode_robots
+        max_geode_robots = child.get_geode_robot_count
+      end
     end
 
     j += 1
   end
 
-  pp '--'
-  pp max_geode_blueprint.staff
-  pp max_geode_blueprint.available_resources
-  pp max_geode_blueprint.get_geode_count
-  trail = max_geode_blueprint.get_ancestor_trail
-  trail
-  #   break
-  # end
+  # pp '--'
+  # pp max_geode_blueprint.staff
+  # pp max_geode_blueprint.available_resources
 
-  break
+  # trail = max_geode_blueprint.get_ancestor_trail
+  # trail
+  # #   break
+  # # end
+
+  pp blueprint_label = (blueprint_index + 1)
+  pp the_geode_count = max_geode_blueprint.get_geode_count
+  pp '##'
+  qualities.push(blueprint_label * the_geode_count)
 end
+
+pp qualities.reduce(&:+)
