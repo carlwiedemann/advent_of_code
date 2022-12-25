@@ -36,15 +36,93 @@ lines.each do |line|
 end
 
 # Part 1.
-pp DICT['root'].result
+# pp DICT['root'].result
 
 # Part 2.
 # Which branch has 'humn'?
+MONKEY_ME = 'humn'
 # @param [Node] node
 def find_monkey(node, name)
   if node.name == name
-
+    node
+  else
+    potential = nil
+    if node.name_left
+      potential = find_monkey(DICT[node.name_left], name)
+      if potential.nil? && node.name_right
+        potential = find_monkey(DICT[node.name_right], name)
+      end
+    end
+    potential
   end
-  left_node = DICT[node.name_left]
-  right_node = DICT[node.name_right]
 end
+
+# Which branch has me?
+
+# @return [[Node, Node, Symbol], nil]
+def branches_for_me(node)
+  if node.name_left.nil?
+    nil
+  else
+    left = DICT[node.name_left]
+    right = DICT[node.name_right]
+    node_me = find_monkey(left, MONKEY_ME)
+    if node_me
+      node_mine = left
+      node_other = right
+      side = :left
+    else
+      node_mine = right
+      node_other = left
+      side = :right
+    end
+
+    [node_mine, node_other, side]
+  end
+end
+
+my_root_branches = branches_for_me(DICT['root'])
+
+result = my_root_branches[1].result
+pp result
+pp 'me'
+me_rn = my_root_branches[0].result
+pp me_rn
+
+trio = branches_for_me(my_root_branches[0])
+op = my_root_branches[0].op
+loop do
+
+  raise 'wat' if trio.nil?
+
+  (node, other_node, side_mine) = trio
+
+  # Which side of the op are we concerned with?
+  on_left = side_mine == :left
+
+  case op
+  when '+'
+    result = result - other_node.result
+  when '-'
+    if on_left
+      result = result + other_node.result
+    else
+      result = other_node.result - result
+    end
+  when '*'
+    result = result / other_node.result
+  when '/'
+    if on_left
+      result = result * other_node.result
+    else
+      result = other_node.result / result
+    end
+  end
+
+  break if node.name == MONKEY_ME
+  op = node.op
+  trio = branches_for_me(node)
+end
+
+pp result
+
