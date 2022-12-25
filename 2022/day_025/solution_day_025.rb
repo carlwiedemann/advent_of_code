@@ -2,12 +2,15 @@ INPUT = File.readlines("#{File.dirname(__FILE__)}/input_day_025.txt")
 lines = INPUT.map(&:strip)
 
 def dec_2_snafu(number)
-  str = ''
+  snafu_string = ''
+
   loop do
     break if number == 0
-    quo = number / 5
-    rem = number % 5
-    case rem
+
+    quotient = number / 5
+    remainder = number % 5
+
+    case remainder
     when 3
       sub = '='
       carry = 1
@@ -15,18 +18,19 @@ def dec_2_snafu(number)
       sub = '-'
       carry = 1
     else
-      sub = rem.to_s
+      sub = remainder.to_s
       carry = 0
     end
-    str = sub + str
-    number = quo + carry
+
+    snafu_string = "#{sub.to_s}#{snafu_string}"
+    number = quotient + carry
   end
 
-  if str == ''
-    str = '0'
+  if snafu_string == ''
+    snafu_string = '0'
   end
 
-  str
+  snafu_string
 end
 
 def snafu_2_dec(snafu)
@@ -34,6 +38,7 @@ def snafu_2_dec(snafu)
 
   length.times.reduce(0) do |memo, i|
     char = snafu[length - 1 - i]
+
     case char
     when '-'
       factor = -1
