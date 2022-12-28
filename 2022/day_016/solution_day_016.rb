@@ -1,4 +1,4 @@
-INPUT = File.readlines('./input_day_016.txt')
+INPUT = File.readlines("#{File.dirname(__FILE__)}/input_day_016.txt")
 lines = INPUT.map(&:strip)
 
 RATE_MAP = lines.reduce({}) do |memo, line|
@@ -269,7 +269,6 @@ module Aoc22d16
 
 end
 
-
 NAVS = GRAPH.keys.reduce({}) do |memo, start|
   nav = Aoc22d16::Navigator.new(GRAPH)
   nav.set_start(start)
@@ -311,7 +310,6 @@ explorer = Aoc22d16::Explorer.new([
 
 i = 0
 loop do
-  break
 
   max_chain = explorer.get_max_chain
   max_potential_chain = explorer.get_max_potential_chain
@@ -350,6 +348,7 @@ end
 
 pp explorer.get_max_chain.pressure_after(30)
 
+abort
 # Part 1
 LIMIT2 = 30
 explorer1 = Aoc22d16::Explorer.new([
@@ -361,60 +360,6 @@ explorer2 = Aoc22d16::Explorer.new([
 
 i = 0
 loop do
-
-  max_chain1 = explorer1.get_max_chain
-  max_chain2 = explorer2.get_max_chain
-  max_potential_chain1 = explorer1.get_max_potential_chain
-  max_potential_chain2 = explorer2.get_max_potential_chain
-  if max_chain1.steps.count >= LIMIT2 && max_chain2.steps.count >= LIMIT2
-    pp max_chain1.object_id
-    pp max_potential_chain1.object_id
-    pp max_chain2.object_id
-    pp max_potential_chain2.object_id
-    break
-  end
-
-  candidate_chain1 = explorer1.extract_candidate_chain
-  candidate_chain2 = explorer2.extract_candidate_chain
-  if i == 0
-    last_valve1 = :AA
-    last_valve2 = :AA
-  else
-    last_valve1 = step_valve(candidate_chain1.steps.last)
-    last_valve2 = step_valve(candidate_chain2.steps.last)
-  end
-
-  # Paths to all remaining valves
-  open_valves1 = candidate_chain1.open_valves
-  open_valves2 = candidate_chain2.open_valves
-  remaining_valves1 = candidate_chain1.remaining_valves(open_valves2)
-  remaining_valves2 = candidate_chain2.remaining_valves(open_valves1)
-
-  # Of all the remaining values, who is closer?
-  # Look at union of remaining spaces
-  # Do n^2 on union to get sets
-  if remaining_valves1.count > 0 || remaining_valves2.count > 0
-
-    unique1.each do |remaining_valve|
-      path = get_path(last_valve1, remaining_valve)
-      path_to_remaining_valve = path.map { |valve| new_step_as_move(valve) }
-      child_chain = candidate_chain1.new_with_steps(path_to_remaining_valve.push(new_step_as_open(path.last)))
-      explorer1.push_chain(child_chain)
-    end
-    unique2.each do |remaining_valve|
-      path = get_path(last_valve2, remaining_valve)
-      path_to_remaining_valve = path.map { |valve| new_step_as_move(valve) }
-      child_chain = candidate_chain2.new_with_steps(path_to_remaining_valve.push(new_step_as_open(path.last)))
-      explorer2.push_chain(child_chain)
-    end
-  else
-    if remaining_valves1.count == 0
-      explorer1.push_chain(candidate_chain1.new_with_steps([new_step_as_move(last_valve1)]))
-    end
-    if remaining_valves2.count == 0
-      explorer2.push_chain(candidate_chain2.new_with_steps([new_step_as_move(last_valve2)]))
-    end
-  end
 
   i += 1
 end

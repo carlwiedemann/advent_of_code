@@ -11,9 +11,6 @@ raw_grid = lines.map do |line|
 end
 
 class D24Nav
-
-  attr_reader :grid, :grid_height, :grid_width
-
   CELL_STORM_LEFT = '<'
   CELL_STORM_RIGHT = '>'
   CELL_STORM_UP = '^'
@@ -27,14 +24,13 @@ class D24Nav
     CELL_STORM_RIGHT,
   ]
 
-  def initialize(grid, initial, final)
+  def initialize(grid, endpoints)
     @grid = grid
 
-    @initial = initial
-    @final = final
+    @endpoints = endpoints
 
-    @grid_width = raw_grid[0].length
-    @grid_height = raw_grid.length
+    @grid_width = @grid[0].length
+    @grid_height = @grid.length
 
     @lcm = @grid_height * @grid_width
 
@@ -46,20 +42,9 @@ class D24Nav
     @storms_cache = Array.new(@lcm) { new_step_hash }
     warm_storms_cache
 
-    # key: manhattan distance
-    # value: Array, sorted by step count (does this matter?)
-    @cursor_store = Hash.new { |h, k| h[k] = Array.new }
-  end
+    @grid_cache = Array.new(@lcm)
 
-  def display_grid(grid)
-    str = ''
-    grid.each do |row|
-      row.each do |value|
-        str += value.to_s
-      end
-      str += "\n"
-    end
-    str
+    @available_points_cache = {}
   end
 
   def new_step_hash
@@ -70,25 +55,30 @@ class D24Nav
     step % @lcm
   end
 
-  def display_grid_at(step)
-    storm_cache = @storms_cache[step]
-    grid = Array.new(@grid_height) { Array.new(@grid_width) }
-    @grid_height.times do |y|
-      @grid_width.times do |x|
-        point = [x, y]
-        storms = storm_cache[point]
-        if storms.nil? || storms.count == 0
-          value = CELL_CLEAR
-        elsif storms.count == 1
-          value = storms[0]
-        else
-          value = storms.count % 10
+  def get_storm_grid_at(step)
+    cache_key = modularize_step(step)
+    if @grid_cache[cache_key].nil?
+      storm_cache = @storms_cache[modularize_step(step)]
+      grid = Array.new(@grid_height) { Array.new(@grid_width) }
+      @grid_height.times do |y|
+        @grid_width.times do |x|
+          point = [x, y]
+          storms = storm_cache[point]
+          if storms.nil? || storms.count == 0
+            value = CELL_CLEAR
+          elsif storms.count == 1
+            value = storms[0]
+          else
+            value = storms.count
+          end
+          grid[y][x] = value
         end
-        grid[y][x] = value
       end
+
+      @grid_cache[cache_key] = grid
     end
 
-    display_grid(grid)
+    @grid_cache[cache_key]
   end
 
   def warm_storms_cache
@@ -129,106 +119,71 @@ class D24Nav
     end
   end
 
-  def get_available_points(cursor)
-    # What is the next set of points for the cursor step?
-    current_step = cursor.step
-    next_step = current_step + 1
-    storms_grid = @storms_cache[modularize_step(next_step)]
+  # @param [Array<Integer>] point
+  # @param [Integer] step
+  def get_available_points(point, step)
+    cache_key = [point, modularize_step(step)]
+    if @available_points_cache[cache_key].nil?
 
-    # Self, N, S, W, E
-    potentially_available_points = [
-      cursor.point,
-      [cursor.point.first, cursor.point.last - 1],
-      [cursor.point.first, cursor.point.last + 1],
-      [cursor.point.first - 1, cursor.point.last],
-      [cursor.point.first + 1, cursor.point.last]
-    ]
+      storms_grid = get_storm_grid_at(step)
 
-    potentially_available_points_in_bounds = potentially_available_points.filter do |point|
-      if point == @final || point == @initial
-        true
-      else
-        point.first >= 0 && point.first < @grid_width && \
-        point.last >= 0 && point.last < @grid_height
+      # Self, N, S, W, E
+      potentially_available_points = [
+        point,
+        [point.first, point.last - 1],
+        [point.first, point.last + 1],
+        [point.first - 1, point.last],
+        [point.first + 1, point.last]
+      ]
+
+      potentially_available_points_in_bounds = potentially_available_points.filter do |p|
+        @endpoints.include?(p) || p.first >= 0 && p.first < @grid_width && p.last >= 0 && p.last < @grid_height
       end
+
+      available_points = potentially_available_points_in_bounds.filter do |p|
+        @endpoints.include?(p) || storms_grid[p.last][p.first] == CELL_CLEAR
+      end
+
+      @available_points_cache[cache_key] = available_points
     end
 
-    available_points = potentially_available_points_in_bounds.filter do |point|
-      storms_grid[point.last][point.first] == CELL_CLEAR
-    end
-
-    if available_points.count == 0
-      raise 'wat'
-    end
-
-    available_points
-  end
-
-  def pull_from_storage
-    # Find min manhattan distance.
-    min_manhattan = @cursor_store.keys.min
-    # Get first
-    # @todo Does this need to be sorted? Does it matter?
-    # Can insert in linear time if the steps are in order.
-    @cursor_store[min_manhattan].shift
+    @available_points_cache[cache_key]
   end
 end
-
-class D24Cursor
-
-  attr_accessor :point, :step, :final
-
-  def initialize(initial, final, step = 0)
-    @point = initial
-    @final = final
-    @step = step
-  end
-
-  def manhattan
-    (@point.first - @final.first).abs + (@point.last - @final.last).abs
-  end
-
-  def new_child_at_present
-    self.class.new(point, @final, @step + 1)
-  end
-
-  def new_child_at(new_point)
-    self.class.new(new_point, @final, @step + 1)
-  end
-
-end
-
 
 INITIAL = [0, -1]
 FINAL = [raw_grid[0].length - 1, raw_grid.length]
 
-nav = D24Nav.new(raw_grid, INITIAL, FINAL)
-nav.push_to_storage(D24Cursor.new(INITIAL, FINAL))
+nav = D24Nav.new(raw_grid, [INITIAL, FINAL])
 
-10.times do |i|
+# @param [D24Nav] nav
+def get_steps(starting_point, ending_point, nav, step = 0)
+  frontier = [starting_point]
+  while frontier.count > 0
+    new_frontier = []
+    found_end = false
+    frontier.each do |point|
+      found_end = point == ending_point
+      break if found_end
+      nav.get_available_points(point, step).each do |adjacent_point|
+        new_frontier.push(adjacent_point)
+      end
+      new_frontier.uniq!
+    end
+    break if found_end
+    frontier = new_frontier
+    step += 1
+  end
 
-  # Start the initial point, put in storage.
-  cursor = nav.pull_from_storage
-
-  # Look for available points at this step.
-  # We either:
-  # 1. Have to move
-  #  - Create child cursor for available point with bumped steps.
-  # 2. Have to stay
-  #  - Create child cursor for available point with bumped steps.
-  # 3. Can move or stay
-  #  - Create child cursor for all available points with bumped steps.
-  available_points = nav.get_available_points(cursor)
-
-  # Reject any items that came to the same point with the same modular step index, which means they went in a cycle.
-  # Each item could contain a history, which could be a hashmap:
-  #  key: Point + modular cycle index
-  #  value: count visited
-  #
-  # When do we break?
-  # - We can stop if we reach the ending point. In which case, we should save the step count.
-  # - Reject all items that exceed the step count. This is guaranteed to happen.
-
-  print nav.display_grid_at(i)
-  print "\n"
+  step
 end
+
+# Part 1.
+final1 = get_steps(INITIAL, FINAL, nav)
+pp (final1 - 1)
+
+# Part 2.
+final2 = get_steps(FINAL, INITIAL, nav, final1)
+final3 = get_steps(INITIAL, FINAL, nav, final2)
+
+pp (final3 - 1)
