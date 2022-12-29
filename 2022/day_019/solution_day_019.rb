@@ -1,202 +1,123 @@
 INPUT = File.readlines("#{File.dirname(__FILE__)}/input_day_019.txt")
 lines = INPUT.map(&:strip)
 
-TYPE_SKIP = -1
 TYPE_ORE = 0
 TYPE_CLAY = 1
 TYPE_OBSIDIAN = 2
 TYPE_GEODE = 3
 
-class BlueprintNode
-  attr_reader :available_resources
-  attr_reader :robot_cost_schedule
-  attr_reader :available_robots
-
-  def initialize(robot_cost_schedule, initial_robots, initial_resources)
-    @robot_cost_schedule = robot_cost_schedule
-    @available_robots = initial_robots
-    @available_resources = initial_resources
-  end
-
-  def push_robot(type)
-    if type != TYPE_SKIP
-      @available_robots[type] += 1
-
-      get_robot_cost(type).each_with_index do |v, i|
-        @available_resources[i] -= v
-      end
-    end
-  end
-
-  def get_max_cost_for_type(type)
-    @robot_cost_schedule.transpose[type].max
-  end
-
-  def get_robot_cost(type)
-    @robot_cost_schedule[type]
-  end
-
-  def self.resources_can_build_robot?(resources, robot_cost)
-    robot_cost.each_with_index.all? do |v, i|
-      resources[i] >= v
-    end
-  end
-
-  def bump_resources
-    @available_robots.each_with_index do |count, i|
-      @available_resources[i] += count
-    end
-  end
-
-  def get_geode_robot_count
-    @available_robots[TYPE_GEODE]
-  end
-
-  def get_geode_count
-    @available_resources[TYPE_GEODE]
-  end
-
-  def available_robot_types
-    available_robot_types = []
-    @available_robots.each_with_index do |count, type|
-      if count > 0
-        available_robot_types.push(type)
-      end
-    end
-    available_robot_types
-  end
-
-end
-
-class BlueprintSchedule
-
-  RESOURCE_LIMIT = 100
-
-  # @param [BlueprintNode] blueprint
-  def initialize(blueprint)
-    # @type [BlueprintNode]
-    @blueprint = blueprint
-    build_schedule
-  end
-
-  TYPES = [
-    TYPE_ORE,
-    TYPE_CLAY,
-    TYPE_OBSIDIAN,
-    TYPE_GEODE
+find_max = ->(line, line_index, minutes) do
+  parts = line.split
+  # Putting these in reverse order means that with the dfs we always go to the higher possible one first.
+  cost_schedule = [
+    [TYPE_GEODE, [parts[27].to_i, 0, parts[30].to_i, 0]],
+    [TYPE_OBSIDIAN, [parts[18].to_i, parts[21].to_i, 0, 0]],
+    [TYPE_CLAY, [parts[12].to_i, 0, 0, 0]],
+    [TYPE_ORE, [parts[6].to_i, 0, 0, 0]],
   ]
 
-  def get_buildable_types_for_resources(resources)
-    @schedule[resource_key(resources)]
-  end
+  max = 0
 
-  def resource_key(resources)
-    resources.first(3)
-  end
+  dfs = ->(resources, robots, minutes_left) do
 
-  def build_schedule
-    @schedule = {}
-    double_resource_limit = RESOURCE_LIMIT * 2
-    # For every combination of Ore, Clay, and Obsidian (because these are only ever used to build robots), what robots
-    # are possible to build?
-    double_resource_limit.times do |index_ore|
-      count_ore = index_ore
-      double_resource_limit.times do |index_clay|
-        count_clay = index_clay
-        RESOURCE_LIMIT.times do |index_obsidian|
-          count_obsidian = index_obsidian
-          resources = [
-            count_ore,
-            count_clay,
-            count_obsidian,
-            0
-          ]
-          available_types = TYPES.filter do |type|
-            BlueprintNode.resources_can_build_robot?(resources, @blueprint.get_robot_cost(type))
+    max_geodes_no_build = robots[TYPE_GEODE] * minutes_left + resources[TYPE_GEODE]
+    if max_geodes_no_build > max
+      max = max_geodes_no_build
+    end
+
+    # Arithmetic series sum to see maximum potential. This acts as a blacklist rather than a whitelist.
+    # Before, we were using just the count at a given step and *including* it if it matched. This is stronger and limits
+    # the options quite a bit more.
+    max_potential_geodes = max_geodes_no_build + (minutes_left * (minutes_left - 1) / 2)
+    if max_potential_geodes <= max
+      return
+    end
+
+    # This seems to determine how many skips are required for a given robot cost.
+    # It denotes that we will always seek to build, and that some number of things would take place in the meantime.
+    turns_to_do = ->(robot_cost) do
+      ts = resources.zip(robots, robot_cost).map do |type_resource_count, type_robot_count, type_cost|
+        # For this particular resource, if we have more of it than the count of the bots, then we return 0
+        if type_resource_count >= type_cost
+          # If we have resources that are greater than costs, we shouldn't skip any turns, because it will mean we
+          # can build right away.
+          0
+        else
+          # Suppose we don't have as much resource as costs. How long should we collect?
+          # If we have more than one bot:
+          if type_robot_count > 0
+            # How many turns to take.
+            # Use reverse modulo trick to ensure that we keep a value up to the next zero remainder.
+            (type_cost - type_resource_count + type_robot_count - 1) / type_robot_count
+          else
+            # If we do not possess any of the given bots for the given type, then we cannot build this at all.
+            nil
           end
-          @schedule[resource_key(resources)] = available_types
         end
       end
+
+      # If anything was nil, then we will return nil, meaning that we cannot build the robot.
+      # Otherwise, we return the max number of turns that are required to build the robot.
+      if ts.all? { !_1.nil? }
+        ts.max
+      else
+        nil
+      end
     end
 
-    @schedule
-  end
-end
+    transposed_schedules = cost_schedule.map { _1[1] }.transpose
+    max_ore_cost = transposed_schedules[TYPE_ORE].max
+    max_clay_cost = transposed_schedules[TYPE_CLAY].max
+    max_obsidian_cost = transposed_schedules[TYPE_OBSIDIAN].max
 
-MASTER_BLUEPRINTS = lines.map do |line|
-  parts = line.split
-  initial_robots = [1, 0, 0, 0]
-  initial_resources = [0, 0, 0, 0]
-  robot_cost_schedule = [
-    [parts[6].to_i, 0, 0, 0],
-    [parts[12].to_i, 0, 0, 0],
-    [parts[18].to_i, parts[21].to_i, 0, 0],
-    [parts[27].to_i, 0, parts[30].to_i, 0],
-  ]
-  BlueprintNode.new(robot_cost_schedule, initial_robots, initial_resources)
-end
-
-MINUTES = 24
-
-# @param [BlueprintNode] blueprint
-# @param [BlueprintSchedule] schedule
-def dfs(schedule, blueprint, minutes_left, reset = false)
-  !@_times.nil? || (@_times = 0)
-  if reset
-    @_times = 0
-  end
-  @_times += 1
-  if @_times % 100000 == 0
-    pp "Scanned      #{@_times}"
-  end
-  if minutes_left >= 0
-    types_to_build = schedule.get_buildable_types_for_resources(blueprint.available_resources) + [TYPE_SKIP]
-
-    # Do not build more robots if we have enough such that on any given turn any dependent robot cost is accommodated.
-    types_to_build = types_to_build.filter do |type_to_build|
+    cost_schedule.each do |type, cost_for_type|
+      # Do not build more robots if we have enough such that on any given turn any dependent robot cost is accommodated.
       # For each of these, if a type is proposed to be build, only build it if the number of robots of the particular
       # type is less than the max cost, which means that in a given turn we will not be able to produce the number
       # needed.
-      case type_to_build
-      when TYPE_ORE, TYPE_CLAY, TYPE_OBSIDIAN
-        blueprint.available_robots[type_to_build] < blueprint.get_max_cost_for_type(type_to_build)
-      else
-        true
+      case type
+      when TYPE_ORE
+        next if robots[type] >= max_ore_cost
+      when TYPE_CLAY
+        next if robots[type] >= max_clay_cost
+      when TYPE_OBSIDIAN
+        next if robots[type] >= max_obsidian_cost
       end
-    end
 
-    # If we can build a geode, it should be the only option we pick.
-    if types_to_build.include?(TYPE_GEODE)
-      types_to_build = [TYPE_GEODE]
-    end
-
-    types_to_build.each do |type_to_build|
-      child = BlueprintNode.new(blueprint.robot_cost_schedule, blueprint.available_robots.dup, blueprint.available_resources.dup)
-      child.bump_resources
-      child.push_robot(type_to_build)
-      # What is potential geode count?
-      max_geodes_no_build = child.get_geode_robot_count * ([minutes_left - 1, 0].max) + blueprint.get_geode_count
-      if max_geodes_no_build >= $max_geode_steps[minutes_left]
-        $max_geode_steps[minutes_left] = max_geodes_no_build
-        dfs(schedule, child, minutes_left - 1)
+      turns = turns_to_do.call(cost_for_type)
+      # This is a key factor is not taking turns that we don't have to take. There is no point in taking a turn if we
+      # cannot build a bot in the allotted time.
+      # By doing this we ensure that once a robot is built, the only decision we make is to build specific robots from
+      # that point forward.
+      if !turns.nil? && turns < minutes_left
+        new_robots = robots.dup
+        new_robots[type] += 1
+        new_resources = resources.each_with_index.map do |resource, i|
+          resource + (turns + 1) * robots[i] - cost_for_type[i]
+        end
+        dfs.call(new_resources, new_robots, minutes_left - turns - 1)
       end
     end
   end
+
+
+  dfs.call([0, 0, 0, 0], [1, 0, 0, 0], minutes, true)
+
+  [max, line_index]
 end
 
-qualities = []
-MASTER_BLUEPRINTS.each_with_index do |master_blueprint, blueprint_index|
-
-  $max_geode_steps = Hash.new { 0 }
-  pp 'Building schedule...'
-  schedule = BlueprintSchedule.new(master_blueprint)
-  pp 'Done.'
-
-  dfs(schedule, master_blueprint, MINUTES, true)
-  pp $max_geode_steps[0]
-
-  qualities.push((blueprint_index + 1) * $max_geode_steps[0])
+# Part 1
+quality = lines.each_with_index.reduce(0) do |memo, (line, line_index)|
+  (max, line_index) = find_max.call(line, line_index, 24)
+  memo + max * (line_index + 1)
 end
 
-pp '##'
-pp qualities.reduce(&:+)
+pp quality
+
+# Part 2
+total = lines.first(3).each_with_index.reduce(1) do |memo, (line, line_index)|
+  (max, _) = find_max.call(line, line_index, 32)
+  memo * max
+end
+
+pp total
