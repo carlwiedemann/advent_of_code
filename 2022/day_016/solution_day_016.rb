@@ -32,30 +32,26 @@ end
 
 $debug = false
 
-def cout (*val)
+def cout(*val)
   if $debug
     puts *val
   end
 end
 
 def step_valve(step)
-  !@_step_value_cache.nil? || (@_step_value_cache = {})
-  @_step_value_cache[step] ||= step.to_s.split('_').last.to_sym
+  step.last
 end
 
 def step_action(step)
-  !@_step_action_cache.nil? || (@_step_action_cache = {})
-  @_step_action_cache[step] ||= step.to_s.split('_').first.to_sym
+  step.first
 end
 
 def new_step_as_open(valve)
-  !@_new_as_open_cache.nil? || (@_new_as_open_cache = {})
-  @_new_as_open_cache[valve] ||= "open_#{valve}".to_sym
+  [:open, valve]
 end
 
 def new_step_as_move(valve)
-  !@_new_as_move_cache.nil? || (@_new_as_move_cache = {})
-  @_new_as_move_cache[valve] ||= "move_#{valve}".to_sym
+  [:move, valve]
 end
 
 module Aoc22d16
@@ -103,7 +99,7 @@ module Aoc22d16
       @graph[v]
     end
 
-    def get_trail(last)
+    def get_trail_valves(last)
       v = last
 
       trail = [last]
@@ -132,14 +128,10 @@ module Aoc22d16
     # @return [Array<Symbol>]
     attr_reader :steps
 
-    def initialize(steps = [])
+    def initialize(steps = [], should_open)
       @steps = steps
       @_cache = {}
-    end
-
-    # @return [Array]
-    def last_step
-      @steps.last
+      @should_open = should_open
     end
 
     # @return [Integer]
@@ -155,9 +147,6 @@ module Aoc22d16
       while i < limit
         total += unit
         step = given_steps[i]
-        # if !step.nil? && step.opens?
-        #   unit += RATE_MAP[step.valve]
-        # end
         if !step.nil? && step_action(step) == :open
           unit += RATE_MAP[step_valve(step)]
         end
@@ -167,14 +156,9 @@ module Aoc22d16
       total
     end
 
-    def new_with_step(new_step)
-      existing_steps = @steps.dup
-      self.class.new(existing_steps.push(new_step))
-    end
-
     def new_with_steps(new_steps)
       existing_steps = @steps.dup
-      self.class.new(existing_steps.concat(new_steps))
+      self.class.new(existing_steps.concat(new_steps), @should_open)
     end
 
     def current_pressure
@@ -182,7 +166,7 @@ module Aoc22d16
     end
 
     def done_opening?
-      open_valves.count == SHOULD_OPEN.count
+      open_valves.count == @should_open.count
     end
 
     def already_opened?(valve)
@@ -190,7 +174,7 @@ module Aoc22d16
     end
 
     def remaining_valves(also_open_valves = [])
-      (SHOULD_OPEN - open_valves - also_open_valves)
+      (@should_open - open_valves - also_open_valves)
     end
 
     def open_valves
@@ -203,7 +187,7 @@ module Aoc22d16
       end
     end
 
-    def max_possible_pressure_after(limit)
+    def greatest_possible_pressure_after(limit)
       cache_key = "max_possible_pressure_after_#{limit}_#{@steps.count}"
       if @_cache[cache_key].nil?
         remaining_valves_descending = remaining_valves.sort { |a, b| RATE_MAP[b] <=> RATE_MAP[a] }
@@ -222,59 +206,105 @@ module Aoc22d16
 
   end
 
-  class Explorer
+  class SingleExplorer
     attr_reader :chains
 
-    # @param [Array<Chain>] chains
-    def initialize(chains, limit)
+    def initialize
       # @type [Array<Chain>]
-      @chains = chains
-      # @type [Integer]
-      @limit = limit
+      @chains = []
     end
 
     # @return [Chain]
-    def extract_candidate_chain
-
+    def pop_candidate_chain(limit)
       # @type [Chain]
-      max_chain = get_max_chain
+      chain_greatest_pressure = get_chain_greatest_pressure
 
-      @chains.filter! do |chain|
-        chain.max_possible_pressure_after(@limit) >= max_chain.max_possible_pressure_after(@limit)
+      @chains = @chains.filter do |chain|
+        first = chain.greatest_possible_pressure_after(limit)
+        second = chain_greatest_pressure.greatest_possible_pressure_after(limit)
+        first >= second
       end
 
-      @chains.sort! { |a, b| a.max_possible_pressure_after(@limit) <=> b.max_possible_pressure_after(@limit) }
+      # The chain will the greatest possible pressure will be the last.
+      @chains = @chains.sort do |a, b|
+        first = a.greatest_possible_pressure_after(limit)
+        second = b.greatest_possible_pressure_after(limit)
+        first <=> second
+      end
 
       @chains.pop
     end
 
-    def get_max_chain
-      @chains.max { |a, b| a.current_pressure <=> b.current_pressure }
+    def get_chain_greatest_pressure
+      @chains.max do |a, b|
+        if a.is_a?(String) || b.is_a?(String)
+          pp @chains
+          abort
+        end
+        first = a.current_pressure
+        second = b.current_pressure
+        first <=> second
+      end
     end
 
-    def get_max_potential_chain
-      @chains.max { |a, b| a.max_possible_pressure_after(@limit) <=> b.max_possible_pressure_after(@limit) }
+    def get_max_potential_chain(limit)
+      @chains.max do |a, b|
+        first = a.greatest_possible_pressure_after(limit)
+        second = b.greatest_possible_pressure_after(limit)
+        first <=> second
+      end
     end
-
-    # # @return [Integer]
-    # def get_max_chain_pressure
-    #   get_max_chain.pressure_after(@limit)
-    # end
 
     def push_chain(chain)
       @chains.push(chain)
     end
-
   end
 
+  # class DualExplorer
+  #   def initialize(limit)
+  #     # @type [Array<Array<Chain>>]
+  #     @chain_pairs = []
+  #     # @type [Integer]
+  #     @limit = limit
+  #   end
+  #
+  #   def push_pair(pair)
+  #     @chain_pairs.push(pair)
+  #   end
+  #
+  #   def pop_candidate_chain_pair
+  #
+  #     # @type [Chain]
+  #     chain_pair_greatest_pressure = get_chain_pair_greatest_pressure
+  #
+  #     @chain_pairs.filter! do |chain_pair|
+  #       # We have some set of remaining valves. Suppose they are opened in order.
+  #       # We should take the sum of the two existing pressures, plus the maximum possible if there was just one chain moving forward.
+  #       # chain.greatest_possible_pressure_after(@limit) >= chain_pair_greatest_pressure.greatest_possible_pressure_after(@limit)
+  #     end
+  #
+  #     # The chain will the greatest possible pressure will be the last.
+  #     # @chains.sort! { |a, b| a.greatest_possible_pressure_after(@limit) <=> b.greatest_possible_pressure_after(@limit) }
+  #
+  #     @chains.pop
+  #
+  #   end
+  #
+  #   def get_chain_pair_greatest_pressure
+  #     @chain_paris.max do |a, b|
+  #       (a.first.current_pressure + a.last.current_pressure) <=> (b.first.current_pressure + b.last.current_pressure)
+  #     end
+  #   end
+  #
+  # end
 end
 
+# Build a list of shortest path sequences, for every valve.
 NAVS = GRAPH.keys.reduce({}) do |memo, start|
   nav = Aoc22d16::Navigator.new(GRAPH)
   nav.set_start(start)
 
   loop do
-
     valve = nav.get_next_unvisited
 
     break if valve.nil?
@@ -298,102 +328,95 @@ NAVS = GRAPH.keys.reduce({}) do |memo, start|
   memo
 end
 
-def get_path(from, to)
-  NAVS[from].get_trail(to)
-end
+def get_max_pressure(explorer, limit)
+  time_start = Time.now
+  i = 0
+  loop do
 
-# Part 1
-LIMIT1 = 30
-explorer = Aoc22d16::Explorer.new([
-  Aoc22d16::Chain.new([])
-], LIMIT1)
+    # if i % 1000 == 0
+    #   pp "Chain count @#{i}: #{explorer.chains.count}"
+    # end
 
-i = 0
-loop do
+    max_chain = explorer.get_chain_greatest_pressure
+    max_potential_chain = explorer.get_max_potential_chain(limit)
+    # Have we reached the limit?
+    step_count = max_chain.steps.count
+    possible_pressure_max_chain = max_chain.greatest_possible_pressure_after(limit)
+    possible_pressure_max_potential_chain = max_potential_chain.greatest_possible_pressure_after(limit)
+    if step_count >= limit && possible_pressure_max_chain == possible_pressure_max_potential_chain
+      break
+    end
 
-  max_chain = explorer.get_max_chain
-  max_potential_chain = explorer.get_max_potential_chain
-  if max_chain.steps.count >= LIMIT1 && max_chain == max_potential_chain
-    break
-  end
+    candidate_chain = explorer.pop_candidate_chain(limit)
+    if i == 0
+      last_valve = :AA
+    else
+      last_valve = step_valve(candidate_chain.steps.last)
+    end
 
-  candidate_chain = explorer.extract_candidate_chain
-  if i == 0
-    last_valve = :AA
-  else
-    last_valve = step_valve(candidate_chain.steps.last)
-  end
+    # Paths to all remaining valves
+    remaining_valves = candidate_chain.remaining_valves
 
-  # Paths to all remaining valves
-  remaining_valves = candidate_chain.remaining_valves
+    if remaining_valves.count > 0
+      remaining_valves.each do |remaining_valve|
+        trail_valves = NAVS[last_valve].get_trail_valves(remaining_valve)
+        path_move = trail_valves.map do |valve|
+          new_step_as_move(valve)
+        end
+        child_chain_path = path_move.push(new_step_as_open(trail_valves.last))
 
-  if remaining_valves.count > 0
-    remaining_valves.each do |remaining_valve|
-      path = get_path(last_valve, remaining_valve)
-      path_to_remaining_valve = path.map do |valve|
-        new_step_as_move(valve)
+        child_chain = candidate_chain.new_with_steps(child_chain_path)
+        explorer.push_chain(child_chain)
       end
-      path_final = path_to_remaining_valve.push(new_step_as_open(path.last))
-
-      child_chain = candidate_chain.new_with_steps(path_final)
+    else
+      # Simply stay put.
+      child_chain_path = [new_step_as_move(last_valve)]
+      child_chain = candidate_chain.new_with_steps(child_chain_path)
       explorer.push_chain(child_chain)
     end
-  else
-    child_chain = candidate_chain.new_with_steps([new_step_as_move(last_valve)])
-    explorer.push_chain(child_chain)
+
+    i += 1
   end
 
-  i += 1
+  time_end = Time.now
+
+  # pp time_end - time_start
+
+  explorer.get_chain_greatest_pressure.pressure_after(limit)
 end
 
-pp explorer.get_max_chain.pressure_after(30)
-
-abort
-# Part 1
-LIMIT2 = 30
-explorer1 = Aoc22d16::Explorer.new([
-  Aoc22d16::Chain.new([])
-], LIMIT2)
-explorer2 = Aoc22d16::Explorer.new([
-  Aoc22d16::Chain.new([])
-], LIMIT2)
-
-i = 0
-loop do
-
-  i += 1
+# Approach using two single chains.
+# 15 valves, so let's suppose a group of 7 and a group of 8.
+# Take all combinations of 8, do analysis to get max.
+# Take all differences of 7, do subsequent analysis.
+# Find greatest sum.
+half = SHOULD_OPEN.count / 2
+should_open_sets = SHOULD_OPEN.combination(half).map(&:itself)
+should_open_set_pairs = should_open_sets.map do |should_open_set|
+  [
+    should_open_set,
+    SHOULD_OPEN - should_open_set
+  ]
 end
 
-# 2247
-# 2735
-a = explorer1.get_max_chain.pressure_after(26)
-b = explorer2.get_max_chain.pressure_after(26)
+max_found = 0
+should_open_set_pairs.each_with_index do |should_open_set_pair, i|
+  if i % 100 == 0
+    pp "Checking pair #{i}"
+  end
+  explorer_me = Aoc22d16::SingleExplorer.new
+  explorer_me.push_chain(Aoc22d16::Chain.new([], should_open_set_pair.first))
+  max_pressure_me = get_max_pressure(explorer_me, 26)
 
-# given_steps1 = a.steps
-# given_steps2 = b.steps
-#
-# limit = 26
-# i = 0
-# unit = 0
-# total = 0
-# while i < limit
-#   total += unit
-#   step1 = given_steps1[i]
-#   step2 = given_steps2[i]
-#   if !step1.nil? && step_action(step1) == :open
-#     unit += RATE_MAP[step_valve(step1)]
-#   end
-#   if !step2.nil? && step_action(step2) == :open
-#     unit += RATE_MAP[step_valve(step2)]
-#   end
-#   i += 1
-# end
-#
-# pp total
+  explorer_elephant = Aoc22d16::SingleExplorer.new
+  explorer_elephant.push_chain(Aoc22d16::Chain.new([], should_open_set_pair.last))
+  max_pressure_elephant = get_max_pressure(explorer_elephant, 26)
 
+  max_for_pair = max_pressure_me + max_pressure_elephant
+  if max_for_pair > max_found
+    pp "new max: #{max_for_pair}"
+    max_found = max_for_pair
+  end
+end
 
-pp a + b
-
-
-
-
+pp max_found
